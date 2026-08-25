@@ -1,0 +1,8 @@
+{
+  "name": "Teacher Hacker",
+  "description": "Comprehensive Teacher & Student Management System with Smart PDF Board, Geometric Tools, AI Smart Prep, and Attendance Tracking",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
