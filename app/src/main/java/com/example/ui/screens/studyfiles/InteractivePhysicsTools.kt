@@ -105,10 +105,15 @@ fun RealisticRuler(
                                 listOf(Color(0xFFFEF9C3), Color(0xFFFEF08A), Color(0xFFFEF9C3))
                             )
                         )
-                        .pointerInput(Unit) {
+                        .pointerInput(currentAngle) {
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
-                                onOffsetChange(currentOffset + dragAmount)
+                                val rad = Math.toRadians(currentAngle.toDouble())
+                                val cosA = kotlin.math.cos(rad).toFloat()
+                                val sinA = kotlin.math.sin(rad).toFloat()
+                                val worldDx = dragAmount.x * cosA - dragAmount.y * sinA
+                                val worldDy = dragAmount.x * sinA + dragAmount.y * cosA
+                                onOffsetChange(currentOffset + Offset(worldDx, worldDy))
                             }
                         }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -434,10 +439,15 @@ fun RealisticProtractor(
                                 listOf(Color(0xFFE0F2FE), Color(0xFFBAE6FD), Color(0xFFE0F2FE))
                             )
                         )
-                        .pointerInput(Unit) {
+                        .pointerInput(currentBaseAngle) {
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
-                                onCenterChange(currentCenter + dragAmount)
+                                val rad = Math.toRadians(currentBaseAngle.toDouble())
+                                val cosA = kotlin.math.cos(rad).toFloat()
+                                val sinA = kotlin.math.sin(rad).toFloat()
+                                val worldDx = dragAmount.x * cosA - dragAmount.y * sinA
+                                val worldDy = dragAmount.x * sinA + dragAmount.y * cosA
+                                onCenterChange(currentCenter + Offset(worldDx, worldDy))
                             }
                         }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -616,7 +626,14 @@ fun RealisticProtractor(
                         listOf(30f, 45f, 60f, 90f, 120f, 180f).forEach { ang ->
                             FilterChip(
                                 selected = currentTargetAngle.toInt() == ang.toInt(),
-                                onClick = { onTargetAngleChange(ang                    Button(
+                                onClick = { onTargetAngleChange(ang) },
+                                label = { Text("${ang.toInt()}°", fontSize = 9.sp) },
+                                modifier = Modifier.height(26.dp)
+                            )
+                        }
+                    }
+
+                    Button(
                         onClick = { onDrawAngle(currentCenter, currentBaseAngle, currentTargetAngle) },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                         modifier = Modifier.height(28.dp),
@@ -636,7 +653,7 @@ fun RealisticProtractor(
 // 3. PHOTOREALISTIC NATURAL SCHOOL COMPASS (البرجل المدرسي المعدني الأصلي)
 // ============================================================================
 @Composable
-fun CompassToolView(
+fun RealisticCompass(
     center: Offset,
     radiusPx: Float,
     onCenterChange: (Offset) -> Unit,
@@ -1133,21 +1150,6 @@ fun InteractiveVertexHandles(
                         text = label,
                         color = Color.White,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-            }
-        }
-    }
-})
-                        .background(shapeState.color)
-                        .border(2.dp, Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = label,
-                        color = Color.White,
-                        fontSize = 11.sp,
                         fontWeight = FontWeight.Black
                     )
                 }

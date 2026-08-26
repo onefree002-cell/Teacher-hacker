@@ -87,6 +87,22 @@ class PdfReportExporter {
             context, teacher, student, group, payment, remainingBalance
         )
 
+        fun generateStudentHomeworkPdf(
+            context: Context,
+            teacher: TeacherEntity?,
+            student: StudentEntity,
+            group: GroupEntity?,
+            lessonDate: String,
+            homeworkTitle: String,
+            imagePaths: List<String>,
+            score: Double = 10.0,
+            maxScore: Double = 10.0,
+            rating: String = "ممتاز",
+            teacherFeedback: String = ""
+        ): File = PdfReportExporter().generateStudentHomeworkPdf(
+            context, teacher, student, group, lessonDate, homeworkTitle, imagePaths, score, maxScore, rating, teacherFeedback
+        )
+
         fun sharePdf(context: Context, file: File, title: String) =
             PdfReportExporter().sharePdf(context, file, title)
 
@@ -3365,6 +3381,273 @@ class PdfReportExporter {
             // Fallback to normal chooser if WhatsApp is not directly matched
             sharePdf(context, file, "مشاركة الفاتورة عبر واتساب")
         }
+    }
+
+    fun generateStudentHomeworkPdf(
+        context: Context,
+        teacher: TeacherEntity?,
+        student: StudentEntity,
+        group: GroupEntity?,
+        lessonDate: String,
+        homeworkTitle: String,
+        imagePaths: List<String>,
+        score: Double = 10.0,
+        maxScore: Double = 10.0,
+        rating: String = "ممتاز",
+        teacherFeedback: String = ""
+    ): File {
+        val cleanStudentName = student.name.replace("[\\\\/:*?\"<>|]".toRegex(), "_").trim()
+        val cleanDate = (if (lessonDate.isBlank()) SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) else lessonDate)
+            .replace("[\\\\/:*?\"<>|]".toRegex(), "_").trim()
+
+        val fileName = "واجب - $cleanStudentName - $cleanDate.pdf"
+
+        val dir = File(context.filesDir, "HomeworkPDFs").apply { mkdirs() }
+        val pdfFile = File(dir, fileName)
+
+        val doc = PdfDocument()
+
+        val pageWidth = 595
+        val pageHeight = 842
+        var pageNumber = 1
+
+        val primaryColor = Color.rgb(30, 58, 138) // Navy Blue
+        val accentColor = Color.rgb(217, 119, 6) // Amber Gold
+        val successColor = Color.rgb(16, 185, 129) // Emerald
+        val cardBg = Color.rgb(248, 250, 252) // Light Gray
+        val borderColor = Color.rgb(226, 232, 240)
+        val textPrimary = Color.rgb(15, 23, 42)
+        val textSecondary = Color.rgb(100, 116, 139)
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        // Helper to start a new page
+        fun createNewPage(): Pair<PdfDocument.Page, Canvas> {
+            val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber++).create()
+            val page = doc.startPage(pageInfo)
+            val canvas = page.canvas
+
+            // Background
+            canvas.drawColor(Color.WHITE)
+
+            // Outer subtle border
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 1.5f
+            paint.color = borderColor
+            canvas.drawRoundRect(RectF(16f, 16f, (pageWidth - 16).toFloat(), (pageHeight - 16).toFloat()), 12f, 12f, paint)
+
+            return Pair(page, canvas)
+        }
+
+        // --- PAGE 1: Evaluation Summary & Primary Homework Photo ---
+        val (page1, canvas1) = createNewPage()
+
+        // 1. Top Header Banner
+        paint.style = Paint.Style.FILL
+        paint.color = primaryColor
+        canvas1.drawRoundRect(RectF(24f, 24f, (pageWidth - 24).toFloat(), 96f), 10f, 10f, paint)
+
+        // Header Title
+        textPaint.color = Color.WHITE
+        textPaint.textSize = 17f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.textAlign = Paint.Align.CENTER
+        canvas1.drawText("سجل توثيق وتصحيح واجب الطالب 📝", (pageWidth / 2).toFloat(), 55f, textPaint)
+
+        textPaint.textSize = 11f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        val teacherLine = "${teacher?.name ?: "الأستاذ"} • ${teacher?.subject ?: "جميع المواد"} • ${teacher?.centerName?.ifEmpty { "التعليم الخاص" } ?: "السنتر"}"
+        canvas1.drawText(teacherLine, (pageWidth / 2).toFloat(), 78f, textPaint)
+
+        // 2. Student Information Card
+        val cardRect = RectF(24f, 106f, (pageWidth - 24).toFloat(), 175f)
+        paint.style = Paint.Style.FILL
+        paint.color = cardBg
+        canvas1.drawRoundRect(cardRect, 8f, 8f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 1f
+        paint.color = borderColor
+        canvas1.drawRoundRect(cardRect, 8f, 8f, paint)
+
+        // Student Info Text
+        textPaint.color = textPrimary
+        textPaint.textSize = 13f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.textAlign = Paint.Align.RIGHT
+
+        canvas1.drawText("اسم الطالب: ${student.name}", (pageWidth - 36).toFloat(), 130f, textPaint)
+        canvas1.drawText("عنوان الواجب: ${homeworkTitle.ifBlank { "واجب الحصة" }}", (pageWidth - 36).toFloat(), 155f, textPaint)
+
+        textPaint.textSize = 11f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.color = textSecondary
+        canvas1.drawText("المجموعة: ${group?.name ?: "بدون مجموعة"} (${student.grade})", 260f, 130f, textPaint)
+        canvas1.drawText("تاريخ الحصة: $cleanDate", 260f, 155f, textPaint)
+
+        // 3. Score & Rating Box
+        val scoreBox = RectF(36f, 116f, 130f, 165f)
+        paint.style = Paint.Style.FILL
+        paint.color = Color.rgb(238, 242, 255)
+        canvas1.drawRoundRect(scoreBox, 8f, 8f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.color = primaryColor
+        paint.strokeWidth = 1.5f
+        canvas1.drawRoundRect(scoreBox, 8f, 8f, paint)
+
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color = primaryColor
+        textPaint.textSize = 14f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas1.drawText("الدرجة: ${score.toInt()}/${maxScore.toInt()}", 83f, 138f, textPaint)
+
+        textPaint.textSize = 10f
+        textPaint.color = accentColor
+        canvas1.drawText(rating.ifBlank { "ممتاز ⭐⭐⭐" }, 83f, 156f, textPaint)
+
+        var currentY = 185f
+
+        // 4. Teacher Feedback Box (if provided)
+        if (teacherFeedback.isNotBlank()) {
+            val fbRect = RectF(24f, currentY, (pageWidth - 24).toFloat(), currentY + 54f)
+            paint.style = Paint.Style.FILL
+            paint.color = Color.rgb(254, 243, 199)
+            canvas1.drawRoundRect(fbRect, 8f, 8f, paint)
+            paint.style = Paint.Style.STROKE
+            paint.color = Color.rgb(245, 158, 11)
+            paint.strokeWidth = 1f
+            canvas1.drawRoundRect(fbRect, 8f, 8f, paint)
+
+            textPaint.textAlign = Paint.Align.RIGHT
+            textPaint.color = Color.rgb(180, 83, 9)
+            textPaint.textSize = 11f
+            textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            canvas1.drawText("💬 ملاحظات وتوجيهات المعلم:", (pageWidth - 36).toFloat(), currentY + 20f, textPaint)
+
+            textPaint.color = textPrimary
+            textPaint.textSize = 10.5f
+            textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            val fbSafe = if (teacherFeedback.length > 80) teacherFeedback.take(80) + "..." else teacherFeedback
+            canvas1.drawText(fbSafe, (pageWidth - 36).toFloat(), currentY + 40f, textPaint)
+
+            currentY += 64f
+        }
+
+        // 5. Draw First Image on Page 1
+        val firstImagePath = imagePaths.firstOrNull { it.isNotBlank() && File(it).exists() }
+        val availablePhotoHeight = (pageHeight - currentY - 50f).coerceAtLeast(100f)
+
+        if (firstImagePath != null) {
+            try {
+                val bitmap = BitmapFactory.decodeFile(firstImagePath)
+                if (bitmap != null) {
+                    val targetWidth = (pageWidth - 48).toFloat()
+                    val scaleFactor = kotlin.math.min(targetWidth / bitmap.width.toFloat(), availablePhotoHeight / bitmap.height.toFloat())
+                    val scaledW = bitmap.width * scaleFactor
+                    val scaledH = bitmap.height * scaleFactor
+
+                    val left = (pageWidth - scaledW) / 2f
+                    val top = currentY + ((availablePhotoHeight - scaledH) / 2f)
+
+                    // Photo Border Card
+                    paint.style = Paint.Style.FILL
+                    paint.color = Color.WHITE
+                    canvas1.drawRoundRect(RectF(left - 4, top - 4, left + scaledW + 4, top + scaledH + 4), 6f, 6f, paint)
+                    paint.style = Paint.Style.STROKE
+                    paint.color = borderColor
+                    paint.strokeWidth = 1.5f
+                    canvas1.drawRoundRect(RectF(left - 4, top - 4, left + scaledW + 4, top + scaledH + 4), 6f, 6f, paint)
+
+                    canvas1.drawBitmap(bitmap, null, RectF(left, top, left + scaledW, top + scaledH), null)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Page 1 Footer
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color = textSecondary
+        textPaint.textSize = 9.5f
+        val footerStr = "تم التوثيق بواسطة تطبيق المعلم الذكي • هاتف المعلم: ${teacher?.phone ?: ""} • صفحة 1 من ${kotlin.math.max(1, imagePaths.size)}"
+        canvas1.drawText(footerStr, (pageWidth / 2).toFloat(), (pageHeight - 24).toFloat(), textPaint)
+
+        doc.finishPage(page1)
+
+        // --- SUBSEQUENT PAGES: Additional Scanned Photos ---
+        if (imagePaths.size > 1) {
+            for (i in 1 until imagePaths.size) {
+                val extraPath = imagePaths[i]
+                if (extraPath.isBlank() || !File(extraPath).exists()) continue
+
+                val (extraPage, extraCanvas) = createNewPage()
+
+                // Header Bar on Extra Pages
+                paint.style = Paint.Style.FILL
+                paint.color = cardBg
+                extraCanvas.drawRoundRect(RectF(24f, 24f, (pageWidth - 24).toFloat(), 64f), 6f, 6f, paint)
+                paint.style = Paint.Style.STROKE
+                paint.color = borderColor
+                paint.strokeWidth = 1f
+                extraCanvas.drawRoundRect(RectF(24f, 24f, (pageWidth - 24).toFloat(), 64f), 6f, 6f, paint)
+
+                textPaint.textAlign = Paint.Align.RIGHT
+                textPaint.color = textPrimary
+                textPaint.textSize = 11.5f
+                textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                extraCanvas.drawText("واجب الطالب: ${student.name} • صفحة ${i + 1}", (pageWidth - 36).toFloat(), 48f, textPaint)
+
+                textPaint.textAlign = Paint.Align.LEFT
+                textPaint.color = textSecondary
+                textPaint.textSize = 10f
+                extraCanvas.drawText("تاريخ: $cleanDate", 36f, 48f, textPaint)
+
+                // Extra Page Photo
+                try {
+                    val bitmap = BitmapFactory.decodeFile(extraPath)
+                    if (bitmap != null) {
+                        val maxPhotoH = pageHeight - 120f
+                        val maxPhotoW = pageWidth - 48f
+                        val scale = kotlin.math.min(maxPhotoW / bitmap.width.toFloat(), maxPhotoH / bitmap.height.toFloat())
+                        val sw = bitmap.width * scale
+                        val sh = bitmap.height * scale
+
+                        val left = (pageWidth - sw) / 2f
+                        val top = 76f + ((maxPhotoH - sh) / 2f)
+
+                        paint.style = Paint.Style.STROKE
+                        paint.color = borderColor
+                        paint.strokeWidth = 1.5f
+                        extraCanvas.drawRoundRect(RectF(left - 3, top - 3, left + sw + 3, top + sh + 3), 6f, 6f, paint)
+
+                        extraCanvas.drawBitmap(bitmap, null, RectF(left, top, left + sw, top + sh), null)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                // Extra Page Footer
+                textPaint.textAlign = Paint.Align.CENTER
+                textPaint.color = textSecondary
+                textPaint.textSize = 9.5f
+                extraCanvas.drawText("صفحة ${i + 1} من ${imagePaths.size}", (pageWidth / 2).toFloat(), (pageHeight - 24).toFloat(), textPaint)
+
+                doc.finishPage(extraPage)
+            }
+        }
+
+        try {
+            val fos = FileOutputStream(pdfFile)
+            doc.writeTo(fos)
+            fos.flush()
+            fos.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            doc.close()
+        }
+
+        return pdfFile
     }
 
     fun sharePdfToTelegram(context: Context, file: File, caption: String = "") {

@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 object AppPreferencesManager {
     private const val PREFS_NAME = "the_hacker_app_prefs"
     private const val KEY_FIRST_LAUNCH_COMPLETED = "pref_first_launch_completed"
+    private const val KEY_HAS_SEEN_TOUR = "pref_has_seen_tour"
     private const val KEY_AUTO_BACKUP_INTERVAL = "pref_auto_backup_interval" // "daily", "weekly", "monthly", "on_change", "disabled"
     private const val KEY_AUTO_BACKUP_TARGET = "pref_auto_backup_target" // "telegram", "local", "both"
     private const val KEY_TELEGRAM_NUMBER = "pref_telegram_number"
@@ -19,6 +20,9 @@ object AppPreferencesManager {
 
     private val _isFirstLaunchCompleted = MutableStateFlow(false)
     val isFirstLaunchCompleted: StateFlow<Boolean> = _isFirstLaunchCompleted.asStateFlow()
+
+    private val _hasSeenTour = MutableStateFlow(false)
+    val hasSeenTour: StateFlow<Boolean> = _hasSeenTour.asStateFlow()
 
     private val _autoBackupInterval = MutableStateFlow("daily")
     val autoBackupInterval: StateFlow<String> = _autoBackupInterval.asStateFlow()
@@ -36,6 +40,7 @@ object AppPreferencesManager {
         if (prefs == null) {
             prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             _isFirstLaunchCompleted.value = prefs?.getBoolean(KEY_FIRST_LAUNCH_COMPLETED, false) ?: false
+            _hasSeenTour.value = prefs?.getBoolean(KEY_HAS_SEEN_TOUR, false) ?: false
             _autoBackupInterval.value = prefs?.getString(KEY_AUTO_BACKUP_INTERVAL, "daily") ?: "daily"
             _autoBackupTarget.value = prefs?.getString(KEY_AUTO_BACKUP_TARGET, "telegram") ?: "telegram"
             _telegramNumber.value = prefs?.getString(KEY_TELEGRAM_NUMBER, "") ?: ""
@@ -50,6 +55,15 @@ object AppPreferencesManager {
     fun setFirstLaunchCompleted(completed: Boolean) {
         prefs?.edit()?.putBoolean(KEY_FIRST_LAUNCH_COMPLETED, completed)?.apply()
         _isFirstLaunchCompleted.value = completed
+    }
+
+    fun hasSeenTour(): Boolean {
+        return prefs?.getBoolean(KEY_HAS_SEEN_TOUR, false) ?: false
+    }
+
+    fun setHasSeenTour(seen: Boolean) {
+        prefs?.edit()?.putBoolean(KEY_HAS_SEEN_TOUR, seen)?.apply()
+        _hasSeenTour.value = seen
     }
 
     fun setAutoBackupSettings(

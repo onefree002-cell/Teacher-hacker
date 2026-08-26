@@ -70,7 +70,10 @@ data class TeacherToolsUiState(
     val hwTitle: String = "واجب الحصة",
     val hwGroupId: Long = 0L,
     val hwStudentId: Long = 0L,
+    val hwLessonDate: String = "",
     val hwPhotoPath: String? = null,
+    val hwPhotoPaths: List<String> = emptyList(),
+    val lastGeneratedHomeworkPdf: File? = null,
     val hwScore: String = "10",
     val hwMaxScore: String = "10",
     val hwRating: String = "ممتاز ⭐⭐⭐",
@@ -474,8 +477,39 @@ class TeacherToolsViewModel(
         _uiState.update { it.copy(hwStudentId = studentId) }
     }
 
+    fun setHwLessonDate(date: String) {
+        _uiState.update { it.copy(hwLessonDate = date) }
+    }
+
     fun setHwPhotoPath(path: String?) {
-        _uiState.update { it.copy(hwPhotoPath = path) }
+        _uiState.update { current ->
+            val list = if (path != null) {
+                if (current.hwPhotoPaths.contains(path)) current.hwPhotoPaths else current.hwPhotoPaths + path
+            } else {
+                emptyList()
+            }
+            current.copy(hwPhotoPath = path, hwPhotoPaths = list)
+        }
+    }
+
+    fun addHwPhotoPath(path: String) {
+        _uiState.update { current ->
+            val updatedList = current.hwPhotoPaths + path
+            current.copy(hwPhotoPaths = updatedList, hwPhotoPath = updatedList.firstOrNull())
+        }
+    }
+
+    fun removeHwPhotoPath(index: Int) {
+        _uiState.update { current ->
+            val updatedList = current.hwPhotoPaths.toMutableList().apply {
+                if (index in indices) removeAt(index)
+            }
+            current.copy(hwPhotoPaths = updatedList, hwPhotoPath = updatedList.firstOrNull())
+        }
+    }
+
+    fun clearHwPhotos() {
+        _uiState.update { it.copy(hwPhotoPaths = emptyList(), hwPhotoPath = null) }
     }
 
     fun setHwScore(score: String) {
@@ -494,43 +528,108 @@ class TeacherToolsViewModel(
         _uiState.update { it.copy(hwFeedbackNote = note) }
     }
 
-    fun saveHomeworkSubmission() {
+    fun saveAndGenerateHomeworkPdf(
+        context: Context,
+        onComplete: ((File) -> Unit)? = null
+    ) {
         val studentId = _uiState.value.hwStudentId
-        val photoPath = _uiState.value.hwPhotoPath
+        val student = _uiState.value.students.find { it.id == studentId }
 
-        if (studentId == 0L) {
-            _uiState.update { it.copy(statusMessage = "يرجى تحديد الطالب أولاً") }
+        if (student == null) {
+            _uiState.update { it.copy(statusMessage = "يرجى اختيار اسم الطالب أولاً") }
+            return
+        }
+
+        val allPhotos = if (_uiState.value.hwPhotoPaths.isNotEmpty()) {
+            _uiState.value.hwPhotoPaths
+        } else if (!_uiState.value.hwPhotoPath.isNullOrEmpty()) {
+            listOf(_uiState.value.hwPhotoPath!!)
+        } else {
+            emptyList()
+        }
+
+        if (allPhotos.isEmpty()) {
+            _uiState.update { it.copy(statusMessage = "يرجى التقاط صورة واحدة على الأقل لواجب الطالب") }
             return
         }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSavingHomework = true) }
-            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-            val scoreVal = _uiState.value.hwScore.toDoubleOrNull() ?: 10.0
-            val maxScoreVal = _uiState.value.hwMaxScore.toDoubleOrNull() ?: 10.0
+            try {
+                val group = _uiState.value.groups.find { it.id == _uiState.value.hwGroupId || it.id == student.groupId }
+                val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                val lessonDate = _uiState.value.hwLessonDate.ifBlank { today }
+                val scoreVal = _uiState.value.hwScore.toDoubleOrNull() ?: 10.0
+                val maxScoreVal = _uiState.value.hwMaxScore.toDoubleOrNull() ?: 10.0
+                val title = _uiState.value.hwTitle.ifBlank { "واجب الحصة - $lessonDate" }
 
-            val submission = HomeworkSubmissionEntity(
-                studentId = studentId,
-                groupId = _uiState.value.hwGroupId,
-                title = _uiState.value.hwTitle.ifEmpty { "واجب الحصة - $today" },
-                assignedDate = today,
-                photoUri = photoPath ?: "",
-                audioFeedbackUri = _uiState.value.lastRecordedFilePath ?: "",
-                score = scoreVal,
-                maxScore = maxScoreVal,
-                rating = _uiState.value.hwRating,
-                feedbackNote = _uiState.value.hwFeedbackNote,
-                status = "corrected"
-            )
-
-            repository.insertHomework(submission)
-            _uiState.update {
-                it.copy(
-                    isSavingHomework = false,
-                    hwPhotoPath = null,
-                    hwFeedbackNote = "",
-                    statusMessage = "تم حفظ وتصحيح الواجب بنجاح 📝"
+                // 1. Generate the PDF with the exact requested naming convention: "واجب - اسم الطالب - تاريخ الحصة.pdf"
+                val pdfFile = pdfExporter.generateStudentHomeworkPdf(
+                    context = context,
+                    teacher = _uiState.value.teacher,
+                    student = student,
+                    group = group,
+                    lessonDate = lessonDate,
+                    homeworkTitle = title,
+                    imagePaths = allPhotos,
+                    score = scoreVal,
+                    maxScore = maxScoreVal,
+                    rating = _uiState.value.hwRating,
+                    teacherFeedback = _uiState.value.hwFeedbackNote
                 )
+
+                // 2. Save submission entity to DB
+                val submission = HomeworkSubmissionEntity(
+                    studentId = student.id,
+                    groupId = group?.id ?: 0L,
+                    title = title,
+                    assignedDate = lessonDate,
+                    photoUri = pdfFile.absolutePath, // Store PDF file path
+                    audioFeedbackUri = _uiState.value.lastRecordedFilePath ?: "",
+                    score = scoreVal,
+                    maxScore = maxScoreVal,
+                    rating = _uiState.value.hwRating,
+                    feedbackNote = _uiState.value.hwFeedbackNote,
+                    status = "corrected"
+                )
+                repository.insertHomework(submission)
+
+                // 3. Register as StudyFile so it is also indexed in study files / notes
+                try {
+                    val studyFile = StudyFileEntity(
+                        title = "واجب - ${student.name} - $lessonDate",
+                        grade = student.grade.ifBlank { "جميع الصفوف" },
+                        category = "واجبات مصححة",
+                        subject = _uiState.value.teacher.subject.ifBlank { "المادة" },
+                        localFilePath = pdfFile.absolutePath,
+                        originalFileName = pdfFile.name,
+                        fileExtension = "pdf",
+                        fileSizeBytes = pdfFile.length(),
+                        notes = "تم تصحيح الواجب بنجاح • الدرجة: ${scoreVal.toInt()}/${maxScoreVal.toInt()}",
+                        dateAdded = lessonDate
+                    )
+                    repository.insertStudyFile(studyFile)
+                } catch (_: Exception) {}
+
+                _uiState.update {
+                    it.copy(
+                        isSavingHomework = false,
+                        lastGeneratedHomeworkPdf = pdfFile,
+                        hwPhotoPaths = emptyList(),
+                        hwPhotoPath = null,
+                        hwFeedbackNote = "",
+                        statusMessage = "تم حفظ وتوليد ملف PDF باسم '${pdfFile.name}' بنجاح 🎉"
+                    )
+                }
+
+                onComplete?.invoke(pdfFile)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSavingHomework = false,
+                        statusMessage = "حدث خطأ أثناء حفظ الواجب: ${e.localizedMessage}"
+                    )
+                }
             }
         }
     }

@@ -64,7 +64,9 @@ sealed class Screen(val route: String, val title: String, val selectedIcon: Imag
     object SmartPrep : Screen("smart_prep", "التحضير الذكي للدروس", Icons.Filled.Psychology, Icons.Outlined.Psychology)
     object QuestionBank : Screen("question_bank", "بنك الأسئلة والشيتات", Icons.Filled.Quiz, Icons.Outlined.Quiz)
     object Search : Screen("search", "البحث الشامل", Icons.Filled.Search, Icons.Outlined.Search)
-    object TeacherTools : Screen("teacher_tools", "أدوات المعلم", Icons.Filled.AutoFixHigh, Icons.Outlined.AutoFixHigh)
+    object TeacherTools : Screen("teacher_tools?studentId={studentId}&tabIndex={tabIndex}", "أدوات المعلم", Icons.Filled.AutoFixHigh, Icons.Outlined.AutoFixHigh) {
+        fun createRoute(studentId: Long = 0L, tabIndex: Int = 0) = "teacher_tools?studentId=$studentId&tabIndex=$tabIndex"
+    }
     object Poster : Screen("app_features", "مميزات التطبيق", Icons.Filled.Star, Icons.Outlined.Star)
     object StudyFiles : Screen("study_files?grade={grade}", "كتب ومذكرات", Icons.Filled.LibraryBooks, Icons.Outlined.LibraryBooks) {
         fun createRoute(grade: String = "") = if (grade.isNotBlank()) "study_files?grade=$grade" else "study_files?grade="
@@ -83,6 +85,7 @@ sealed class Screen(val route: String, val title: String, val selectedIcon: Imag
                 Schedule,
                 Attendance,
                 Students,
+                TeacherTools,
                 Finance
             )
     }

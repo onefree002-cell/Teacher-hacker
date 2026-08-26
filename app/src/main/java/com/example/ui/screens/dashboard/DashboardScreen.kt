@@ -229,10 +229,78 @@ fun DashboardScreen(
                 }
             }
 
-            // 3. Quick Actions Carousel
+            // 3. Homework PDF Scanner Hero Banner (1-Tap Direct Capture)
+            item {
+                Card(
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, NavyPrimaryLight.copy(alpha = 0.5f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToTeacherTools() }
+                        .testTag("hero_homework_scanner_banner")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF3B82F6).copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = com.example.util.L.homeworkPdfScanner(),
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "تصوير كشكول الواجب وتوليد PDF باسم 'واجب - الطالب - التاريخ'",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = NavyPrimary,
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text(
+                                text = "تصوير 📸",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 4. Quick Actions Carousel
             item {
                 Text(
-                    text = "الإجراءات السريعة",
+                    text = com.example.util.L.quickActions(),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -243,7 +311,15 @@ fun DashboardScreen(
                 ) {
                     item {
                         QuickActionItem(
-                            title = "كتب ومذكرات",
+                            title = com.example.util.L.homeworkPdfScanner(),
+                            icon = Icons.Filled.CameraAlt,
+                            color = Color(0xFF3B82F6),
+                            onClick = onNavigateToTeacherTools
+                        )
+                    }
+                    item {
+                        QuickActionItem(
+                            title = com.example.util.L.studyFiles(),
                             icon = Icons.Filled.LibraryBooks,
                             color = NavyPrimary,
                             onClick = onNavigateToStudyFiles
@@ -251,23 +327,7 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionItem(
-                            title = "المميزات",
-                            icon = Icons.Filled.AutoAwesome,
-                            color = Color(0xFFD97706),
-                            onClick = onNavigateToPoster
-                        )
-                    }
-                    item {
-                        QuickActionItem(
-                            title = "التحضير الذكي",
-                            icon = Icons.Filled.Psychology,
-                            color = NavyPrimary,
-                            onClick = onNavigateToSmartPrep
-                        )
-                    }
-                    item {
-                        QuickActionItem(
-                            title = "أدوات المعلم",
+                            title = com.example.util.L.teacherTools(),
                             icon = Icons.Filled.AutoAwesome,
                             color = AmberGold,
                             onClick = onNavigateToTeacherTools
@@ -275,7 +335,7 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionItem(
-                            title = "إضافة طالب",
+                            title = com.example.util.L.addStudent(),
                             icon = Icons.Filled.PersonAdd,
                             color = NavyPrimaryLight,
                             onClick = onNavigateToStudents
@@ -283,7 +343,7 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionItem(
-                            title = "إضافة مجموعة",
+                            title = com.example.util.L.addGroup(),
                             icon = Icons.Filled.GroupAdd,
                             color = IndigoExam,
                             onClick = onNavigateToGroups
@@ -291,7 +351,7 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionItem(
-                            title = "تسجيل حضور",
+                            title = com.example.util.L.recordAttendance(),
                             icon = Icons.Filled.FactCheck,
                             color = EmeraldSuccess,
                             onClick = onNavigateToAttendance
@@ -299,7 +359,7 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionItem(
-                            title = "إضافة امتحان",
+                            title = com.example.util.L.addExam(),
                             icon = Icons.Filled.AssignmentTurnedIn,
                             color = AmberGold,
                             onClick = onNavigateToExams
@@ -307,7 +367,7 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionItem(
-                            title = "تسجيل دفعة",
+                            title = com.example.util.L.finance(),
                             icon = Icons.Filled.AddCard,
                             color = EmeraldSuccess,
                             onClick = onNavigateToFinance
@@ -315,31 +375,15 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionItem(
-                            title = "إضافة مصروف",
-                            icon = Icons.Filled.Paid,
-                            color = CrimsonError,
-                            onClick = onNavigateToFinance
-                        )
-                    }
-                    item {
-                        QuickActionItem(
-                            title = "إنشاء تقرير",
-                            icon = Icons.Filled.PictureAsPdf,
+                            title = com.example.util.L.smartPrep(),
+                            icon = Icons.Filled.Psychology,
                             color = NavyPrimary,
-                            onClick = onNavigateToReports
+                            onClick = onNavigateToSmartPrep
                         )
                     }
                     item {
                         QuickActionItem(
-                            title = "خطة المنهج",
-                            icon = Icons.Filled.MenuBook,
-                            color = EmeraldSuccess,
-                            onClick = onNavigateToCurriculum
-                        )
-                    }
-                    item {
-                        QuickActionItem(
-                            title = "بنك الأسئلة",
+                            title = com.example.util.L.questionBank(),
                             icon = Icons.Filled.Quiz,
                             color = PurpleAccent,
                             onClick = onNavigateToQuestionBank
@@ -347,36 +391,28 @@ fun DashboardScreen(
                     }
                     item {
                         QuickActionItem(
-                            title = "أماكن الدروس",
-                            icon = Icons.Filled.LocationCity,
-                            color = AmberGoldDark,
-                            onClick = onNavigateToVenues
+                            title = com.example.util.L.reports(),
+                            icon = Icons.Filled.PictureAsPdf,
+                            color = NavyPrimary,
+                            onClick = onNavigateToReports
                         )
                     }
                     item {
                         QuickActionItem(
-                            title = "تصميم شهادة",
+                            title = com.example.util.L.certificates(),
                             icon = Icons.Filled.WorkspacePremium,
                             color = AmberGold,
                             onClick = onNavigateToCertificates
                         )
                     }
-                    item {
-                        QuickActionItem(
-                            title = "استيراد قديم",
-                            icon = Icons.Filled.CloudDownload,
-                            color = IndigoExam,
-                            onClick = onNavigateToBackup
-                        )
-                    }
                 }
             }
 
-            // 4. Next Session Hero Card
+            // 5. Next Session Hero Card
             item {
                 SectionHeader(
-                    title = "الحصة القادمة",
-                    actionText = "عرض الجدول",
+                    title = com.example.util.L.nextSession(),
+                    actionText = com.example.util.L.schedule(),
                     onActionClick = onNavigateToSchedule
                 )
                 if (state.nextSession != null && state.nextSessionGroup != null) {

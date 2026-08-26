@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 val LocalAppLanguage = compositionLocalOf { AppLanguage.ARABIC }
 
 enum class AppLanguage(val code: String, val displayName: String, val flag: String, val isRtl: Boolean) {
-    ARABIC("ar", "العربية", "🇸🇦", true),
+    ARABIC("ar", "العربية", "🇪🇬", true),
     ENGLISH("en", "English", "🇬🇧", false),
     FRENCH("fr", "Français", "🇫🇷", false)
 }
@@ -284,6 +284,48 @@ object L {
         AppLanguage.ARABIC -> "مترجم المعلم الفوري"
         AppLanguage.ENGLISH -> "Smart Teacher Translator"
         AppLanguage.FRENCH -> "Traducteur Pédagogique Intelligent"
+    }
+
+    fun homeworkPdfScanner(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "تصوير واجب الطالب (PDF)"
+        AppLanguage.ENGLISH -> "Homework PDF Scanner"
+        AppLanguage.FRENCH -> "Scanner Devoirs (PDF)"
+    }
+
+    fun quickActions(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الإجراءات السريعة"
+        AppLanguage.ENGLISH -> "Quick Actions"
+        AppLanguage.FRENCH -> "Actions Rapides"
+    }
+
+    fun nextSession(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الحصة القادمة"
+        AppLanguage.ENGLISH -> "Next Class"
+        AppLanguage.FRENCH -> "Prochain Cours"
+    }
+
+    fun addStudent(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "إضافة طالب"
+        AppLanguage.ENGLISH -> "Add Student"
+        AppLanguage.FRENCH -> "Ajouter Élève"
+    }
+
+    fun addGroup(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "إضافة مجموعة"
+        AppLanguage.ENGLISH -> "Add Group"
+        AppLanguage.FRENCH -> "Ajouter Groupe"
+    }
+
+    fun recordAttendance(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "تسجيل حضور"
+        AppLanguage.ENGLISH -> "Take Attendance"
+        AppLanguage.FRENCH -> "Faire l'Appel"
+    }
+
+    fun addExam(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "إضافة امتحان"
+        AppLanguage.ENGLISH -> "Add Exam"
+        AppLanguage.FRENCH -> "Ajouter Examen"
     }
 
     // Classroom & Whiteboard Tools
@@ -721,12 +763,6 @@ object L {
         AppLanguage.FRENCH -> "Mode Dessin"
     }
 
-    fun selectTool(): String = when (LocaleManager.currentLanguage.value) {
-        AppLanguage.ARABIC -> "تحديد وتحريك"
-        AppLanguage.ENGLISH -> "Select & Move"
-        AppLanguage.FRENCH -> "Sélectionner & Déplacer"
-    }
-
     fun moveAndZoom(): String = when (LocaleManager.currentLanguage.value) {
         AppLanguage.ARABIC -> "تحريك وتكبير"
         AppLanguage.ENGLISH -> "Move & Zoom"
@@ -865,12 +901,6 @@ object L {
         AppLanguage.FRENCH -> "Fermer"
     }
 
-    fun stickyNote(): String = when (LocaleManager.currentLanguage.value) {
-        AppLanguage.ARABIC -> "ملاحظة 📌"
-        AppLanguage.ENGLISH -> "Sticky Note 📌"
-        AppLanguage.FRENCH -> "Note Adhésive 📌"
-    }
-
     fun duplicate(): String = when (LocaleManager.currentLanguage.value) {
         AppLanguage.ARABIC -> "تكرار"
         AppLanguage.ENGLISH -> "Duplicate"
@@ -881,5 +911,226 @@ object L {
         AppLanguage.ARABIC -> "تعديل الرؤوس"
         AppLanguage.ENGLISH -> "Edit Vertices"
         AppLanguage.FRENCH -> "Modifier Sommets"
+    }
+
+    // ==========================================
+    // Days of the Week Localization (أيام الأسبوع)
+    // ==========================================
+    fun allDays(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الكل"
+        AppLanguage.ENGLISH -> "All Days"
+        AppLanguage.FRENCH -> "Tous les jours"
+    }
+
+    fun saturday(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "السبت"
+        AppLanguage.ENGLISH -> "Saturday"
+        AppLanguage.FRENCH -> "Samedi"
+    }
+
+    fun sunday(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الأحد"
+        AppLanguage.ENGLISH -> "Sunday"
+        AppLanguage.FRENCH -> "Dimanche"
+    }
+
+    fun monday(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الإثنين"
+        AppLanguage.ENGLISH -> "Monday"
+        AppLanguage.FRENCH -> "Lundi"
+    }
+
+    fun tuesday(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الثلاثاء"
+        AppLanguage.ENGLISH -> "Tuesday"
+        AppLanguage.FRENCH -> "Mardi"
+    }
+
+    fun wednesday(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الأربعاء"
+        AppLanguage.ENGLISH -> "Wednesday"
+        AppLanguage.FRENCH -> "Mercredi"
+    }
+
+    fun thursday(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الخميس"
+        AppLanguage.ENGLISH -> "Thursday"
+        AppLanguage.FRENCH -> "Jeudi"
+    }
+
+    fun friday(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الجمعة"
+        AppLanguage.ENGLISH -> "Friday"
+        AppLanguage.FRENCH -> "Vendredi"
+    }
+
+    fun localizedDay(day: String): String {
+        return when (day.trim().lowercase()) {
+            "all", "الكل", "tous" -> allDays()
+            "السبت", "saturday", "samedi", "sat" -> saturday()
+            "الأحد", "الاحد", "sunday", "dimanche", "sun" -> sunday()
+            "الإثنين", "الاثنين", "monday", "lundi", "mon" -> monday()
+            "الثلاثاء", "tuesday", "mardi", "tue" -> tuesday()
+            "الأربعاء", "الاربعاء", "wednesday", "mercredi", "wed" -> wednesday()
+            "الخميس", "thursday", "jeudi", "thu" -> thursday()
+            "الجمعة", "friday", "vendredi", "fri" -> friday()
+            else -> day
+        }
+    }
+
+    // ==========================================
+    // Educational Stages Localization (المراحل والصفوف)
+    // ==========================================
+    fun primaryStage(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "المرحلة الابتدائية (1 - 6)"
+        AppLanguage.ENGLISH -> "Primary Stage (Grades 1 - 6)"
+        AppLanguage.FRENCH -> "Cycle Primaire (1ère - 6ème)"
+    }
+
+    fun preparatoryStage(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "المرحلة الإعدادية (1 - 3)"
+        AppLanguage.ENGLISH -> "Preparatory Stage (Grades 7 - 9)"
+        AppLanguage.FRENCH -> "Cycle Collège (7ème - 9ème)"
+    }
+
+    fun secondaryStage(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "المرحلة الثانوية (1 - 3)"
+        AppLanguage.ENGLISH -> "Secondary Stage (Grades 10 - 12)"
+        AppLanguage.FRENCH -> "Cycle Lycée (10ème - 12ème)"
+    }
+
+    fun otherStage(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "أخرى / عام"
+        AppLanguage.ENGLISH -> "Other / General"
+        AppLanguage.FRENCH -> "Autre / Général"
+    }
+
+    fun localizedGrade(grade: String): String {
+        val g = grade.trim()
+        val lang = LocaleManager.currentLanguage.value
+        if (lang == AppLanguage.ARABIC) return g
+
+        return when {
+            g.contains("الأول الابتدائي") || g.contains("الاول الابتدائي") -> if (lang == AppLanguage.ENGLISH) "1st Primary Grade" else "1ère Année Primaire"
+            g.contains("الثاني الابتدائي") -> if (lang == AppLanguage.ENGLISH) "2nd Primary Grade" else "2ème Année Primaire"
+            g.contains("الثالث الابتدائي") -> if (lang == AppLanguage.ENGLISH) "3rd Primary Grade" else "3ème Année Primaire"
+            g.contains("الرابع الابتدائي") -> if (lang == AppLanguage.ENGLISH) "4th Primary Grade" else "4ème Année Primaire"
+            g.contains("الخامس الابتدائي") -> if (lang == AppLanguage.ENGLISH) "5th Primary Grade" else "5ème Année Primaire"
+            g.contains("السادس الابتدائي") -> if (lang == AppLanguage.ENGLISH) "6th Primary Grade" else "6ème Année Primaire"
+            g.contains("الأول الإعدادي") || g.contains("الاول الاعدادي") -> if (lang == AppLanguage.ENGLISH) "1st Prep (Grade 7)" else "1ère Année Collège"
+            g.contains("الثاني الإعدادي") || g.contains("الثاني الاعدادي") -> if (lang == AppLanguage.ENGLISH) "2nd Prep (Grade 8)" else "2ème Année Collège"
+            g.contains("الثالث الإعدادي") || g.contains("الثالث الاعدادي") -> if (lang == AppLanguage.ENGLISH) "3rd Prep (Grade 9)" else "3ème Année Collège"
+            g.contains("الأول الثانوي") || g.contains("الاول الثانوي") -> if (lang == AppLanguage.ENGLISH) "1st Secondary (Grade 10)" else "1ère Année Lycée"
+            g.contains("الثاني الثانوي") -> if (lang == AppLanguage.ENGLISH) "2nd Secondary (Grade 11)" else "2ème Année Lycée"
+            g.contains("الثالث الثانوي") -> if (lang == AppLanguage.ENGLISH) "3rd Secondary (Grade 12)" else "3ème Année Lycée (Bac)"
+            g.contains("رياض أطفال") -> if (lang == AppLanguage.ENGLISH) "Kindergarten (KG)" else "Maternelle (KG)"
+            g.contains("تأسيس") -> if (lang == AppLanguage.ENGLISH) "Foundation & Tutoring" else "Fondation & Soutien"
+            g.contains("تعليم حر") -> if (lang == AppLanguage.ENGLISH) "Courses / Free Study" else "Cours Libres / Formations"
+            g.contains("جامعي") -> if (lang == AppLanguage.ENGLISH) "University / Diploma" else "Universitaire / Diplôme"
+            g.contains("الكل") -> if (lang == AppLanguage.ENGLISH) "All Grades" else "Toutes les Classes"
+            else -> g
+        }
+    }
+
+    // ==========================================
+    // Guided App Tour Strings (الجولة التعريفية)
+    // ==========================================
+    fun appGuidedTour(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "جولة تعريفية بالتطبيق 📖"
+        AppLanguage.ENGLISH -> "App Guided Tour 📖"
+        AppLanguage.FRENCH -> "Visite Guidée de l'Application 📖"
+    }
+
+    fun startTour(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "بدء الجولة التعريفية"
+        AppLanguage.ENGLISH -> "Start Guided Tour"
+        AppLanguage.FRENCH -> "Démarrer la Visite"
+    }
+
+    fun skipTour(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "تخطي الجولة ✕"
+        AppLanguage.ENGLISH -> "Skip Tour ✕"
+        AppLanguage.FRENCH -> "Passer ✕"
+    }
+
+    fun next(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "التالي >"
+        AppLanguage.ENGLISH -> "Next >"
+        AppLanguage.FRENCH -> "Suivant >"
+    }
+
+    fun previous(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "< السابق"
+        AppLanguage.ENGLISH -> "< Previous"
+        AppLanguage.FRENCH -> "< Précédent"
+    }
+
+    fun finishTour(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "إنهاء وبدء استخدام التطبيق 🚀"
+        AppLanguage.ENGLISH -> "Finish & Start Using App 🚀"
+        AppLanguage.FRENCH -> "Terminer & Démarrer 🚀"
+    }
+
+    fun stepOf(current: Int, total: Int): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الخطوة $current من $total"
+        AppLanguage.ENGLISH -> "Step $current of $total"
+        AppLanguage.FRENCH -> "Étape $current sur $total"
+    }
+
+    // ==========================================
+    // Attendance Split Tabs (صفحة الحضور المقسمة)
+    // ==========================================
+    fun tabAttendance(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "📋 تسجيل الحضور والغياب"
+        AppLanguage.ENGLISH -> "📋 Attendance"
+        AppLanguage.FRENCH -> "📋 Présences"
+    }
+
+    fun tabHomeworkCapture(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "📸 تصوير وتوثيق الواجب"
+        AppLanguage.ENGLISH -> "📸 Homework Scanner"
+        AppLanguage.FRENCH -> "📸 Scanner Devoirs"
+    }
+
+    fun tabExtraTools(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "⚙️ أدوات إضافية"
+        AppLanguage.ENGLISH -> "⚙️ Extra Tools"
+        AppLanguage.FRENCH -> "⚙️ Outils Supplémentaires"
+    }
+
+    fun takeCameraPhoto(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "التقاط صورة للواجب بالكاميرا 📷"
+        AppLanguage.ENGLISH -> "Take Photo with Camera 📷"
+        AppLanguage.FRENCH -> "Prendre Photo avec Caméra 📷"
+    }
+
+    fun pickFromGallery(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "اختيار صور من المعرض 🖼️"
+        AppLanguage.ENGLISH -> "Pick from Gallery 🖼️"
+        AppLanguage.FRENCH -> "Choisir depuis Galerie 🖼️"
+    }
+
+    fun generateHomeworkPdf(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "حفظ وتوليد ملف PDF الواجب 📄"
+        AppLanguage.ENGLISH -> "Save & Generate Homework PDF 📄"
+        AppLanguage.FRENCH -> "Générer PDF du Devoir 📄"
+    }
+
+    fun shareOnWhatsApp(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "مشاركة التقرير عبر واتساب 💬"
+        AppLanguage.ENGLISH -> "Share Report via WhatsApp 💬"
+        AppLanguage.FRENCH -> "Partager sur WhatsApp 💬"
+    }
+
+    fun seniorFriendlyHint(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "💡 نصيحة: صُمم هذا النظام بأزرار كبيرة وواضحة لتسهيل الاستخدام لكافة المعلمين."
+        AppLanguage.ENGLISH -> "💡 Tip: Designed with large high-contrast buttons for effortless usage."
+        AppLanguage.FRENCH -> "💡 Astuce: Conçu avec de grands boutons pour une utilisation sans effort."
+    }
+
+    fun casioCalculator(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "الآلة الحاسبة العلمية Casio"
+        AppLanguage.ENGLISH -> "Casio FX Scientific Calculator"
+        AppLanguage.FRENCH -> "Calculatrice Scientifique Casio"
     }
 }

@@ -46,15 +46,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
+import com.example.data.export.PdfReportExporter
 import com.example.data.local.entity.GroupEntity
 import com.example.data.local.entity.HomeworkSubmissionEntity
 import com.example.data.local.entity.StudentEntity
 import com.example.data.local.entity.VoiceNoteEntity
+import com.example.ui.components.CasioCalculatorContent
 import com.example.ui.components.EmptyStateWidget
 import com.example.ui.theme.*
 import com.example.util.MediaCaptureHelper
 import com.example.util.WhatsAppHelper
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 enum class TeacherToolsTab(
@@ -70,6 +74,7 @@ enum class TeacherToolsTab(
     GRADE_CALC("حاسبة الدرجات", Icons.Filled.Calculate, Color(0xFF8B5CF6)),
     BOOKLET_TRACKER("سجل المذكرات", Icons.Filled.MenuBook, EmeraldSuccess),
     PORTFOLIO_CARDS("بورتفوليو المعلم", Icons.Filled.Badge, Color(0xFFD97706)),
+    CASIO_CALC("آلة كاسيو العلمية", Icons.Filled.Calculate, Color(0xFF0284C7)),
     PRINT_HUB("مركز الطباعة", Icons.Filled.Print, NavyPrimary),
     TEMPLATES("رسائل جاهزة", Icons.Filled.Send, Color(0xFFEC4899));
 
@@ -82,6 +87,7 @@ enum class TeacherToolsTab(
         GRADE_CALC -> com.example.util.L.gradeCalculator()
         BOOKLET_TRACKER -> com.example.util.L.bookletTracker()
         PORTFOLIO_CARDS -> com.example.util.L.portfolioCards()
+        CASIO_CALC -> com.example.util.L.casioCalculator()
         PRINT_HUB -> com.example.util.L.printHub()
         TEMPLATES -> com.example.util.L.templates()
     }
@@ -92,6 +98,7 @@ enum class TeacherToolsTab(
 fun TeacherToolsScreen(
     viewModel: TeacherToolsViewModel,
     onNavigateBack: () -> Unit,
+    initialTab: TeacherToolsTab = TeacherToolsTab.HOMEWORK_SCANNER,
     onNavigateToSchedule: () -> Unit = {},
     onNavigateToStudents: () -> Unit = {},
     onNavigateToSmartPrep: () -> Unit = {},
@@ -100,7 +107,7 @@ fun TeacherToolsScreen(
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedTab by remember { mutableStateOf(TeacherToolsTab.VOICE_STUDIO) }
+    var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
 
     LaunchedEffect(state.statusMessage) {
         state.statusMessage?.let {
@@ -223,6 +230,7 @@ fun TeacherToolsScreen(
                     TeacherToolsTab.GRADE_CALC -> QuickGradeCalculatorView(state, viewModel)
                     TeacherToolsTab.BOOKLET_TRACKER -> BookletTrackerView(state, viewModel, context)
                     TeacherToolsTab.PORTFOLIO_CARDS -> TeacherPortfolioAndCardsView(state, context)
+                    TeacherToolsTab.CASIO_CALC -> CasioCalculatorToolView()
                     TeacherToolsTab.PRINT_HUB -> QuickPrintHubView(state, viewModel, context, onNavigateToSchedule)
                     TeacherToolsTab.TEMPLATES -> MotivationTemplatesView(state, context)
                 }
@@ -621,6 +629,7 @@ private fun HomeworkScannerView(
 ) {
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
     var viewingPhotoPath by remember { mutableStateOf<String?>(null) }
+    var showPdfSuccessDialog by remember { mutableStateOf<File?>(null) }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -634,8 +643,10 @@ private fun HomeworkScannerView(
     ) { success ->
         if (success && tempCameraUri != null) {
             val permanentPath = MediaCaptureHelper.saveImageUriToLocalStorage(context, tempCameraUri!!, "HW_CAM")
-            viewModel.setHwPhotoPath(permanentPath)
-            Toast.makeText(context, "تم التقاط صورة الواجب بنجاح 📸", Toast.LENGTH_SHORT).show()
+            if (permanentPath != null) {
+                viewModel.addHwPhotoPath(permanentPath)
+                Toast.makeText(context, "تم التقاط صفحة من الواجب بنجاح 📸", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -656,12 +667,29 @@ private fun HomeworkScannerView(
 
     // Gallery / File Picker Launcher
     val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            uris.forEach { uri ->
+                val permanentPath = MediaCaptureHelper.saveImageUriToLocalStorage(context, uri, "HW_FILE")
+                if (permanentPath != null) {
+                    viewModel.addHwPhotoPath(permanentPath)
+                }
+            }
+            Toast.makeText(context, "تم إضافة ${uris.size} صورة للواجب 📁", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Single file fallback
+    val pickSingleImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
             val permanentPath = MediaCaptureHelper.saveImageUriToLocalStorage(context, uri, "HW_FILE")
-            viewModel.setHwPhotoPath(permanentPath)
-            Toast.makeText(context, "تم اختيار صورة الواجب 📁", Toast.LENGTH_SHORT).show()
+            if (permanentPath != null) {
+                viewModel.addHwPhotoPath(permanentPath)
+                Toast.makeText(context, "تم اختيار صورة الواجب 📁", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -669,6 +697,89 @@ private fun HomeworkScannerView(
 
     val activeStudents = state.students.filter {
         it.status == "active" && (state.hwGroupId == 0L || it.groupId == state.hwGroupId)
+    }
+
+    // Success PDF Dialog
+    showPdfSuccessDialog?.let { pdfFile ->
+        val selectedStudent = state.students.find { it.id == state.hwStudentId }
+        AlertDialog(
+            onDismissRequest = { showPdfSuccessDialog = null },
+            icon = {
+                Icon(
+                    Icons.Filled.PictureAsPdf,
+                    contentDescription = null,
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "تم إنشاء ملف PDF للواجب بنجاح! 🎉",
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "📄 اسم الملف:\n${pdfFile.name}",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(10.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Text(
+                        text = "يمكنك الآن استعراض ملف الواجب، إرساله مباشرة لواتساب ولي الأمر، أو مشاركته عبر التطبيقات الأخرى.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val parentPhone = selectedStudent?.parentPhone?.ifEmpty { selectedStudent.phone } ?: ""
+                        val teacherName = state.teacher.name.ifEmpty { "معلم المادة" }
+                        val caption = "📄 *ملف واجب الطالب: ${selectedStudent?.name ?: ""}*\nتم تصحيح وتوثيق الواجب بنجاح.\nمعلم المادة: $teacherName"
+                        PdfReportExporter.sharePdfToWhatsApp(context, pdfFile, caption, parentPhone)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("إرسال لواتساب ولي الأمر")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            PdfReportExporter.sharePdf(context, pdfFile, pdfFile.name)
+                        },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("مشاركة")
+                    }
+                    TextButton(onClick = { showPdfSuccessDialog = null }) {
+                        Text("تم")
+                    }
+                }
+            }
+        )
     }
 
     LazyColumn(
@@ -692,21 +803,21 @@ private fun HomeworkScannerView(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
                                 .background(Color(0xFF3B82F6).copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Filled.CameraAlt, contentDescription = null, tint = Color(0xFF3B82F6))
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "تصوير وتصحيح واجبات الطلاب",
+                                text = "تصوير وتوثيق واجب الطالب (PDF)",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = "التقاط صورة كشكول الواجب أو رفع ملف وتدوين التقييم",
+                                text = "تصوير كشكول الواجب وحفظه كملف PDF باسم 'واجب - اسم الطالب - تاريخ الحصة'",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -733,7 +844,7 @@ private fun HomeworkScannerView(
                     }
 
                     // Student Selector
-                    Text("الطالب المعني:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("الطالب المعني (مطلوب):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(activeStudents) { std ->
                             FilterChip(
@@ -749,16 +860,31 @@ private fun HomeworkScannerView(
                         }
                     }
 
-                    OutlinedTextField(
-                        value = state.hwTitle,
-                        onValueChange = { viewModel.setHwTitle(it) },
-                        label = { Text("عنوان الواجب / الدرس") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // Title & Date
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = state.hwTitle,
+                            onValueChange = { viewModel.setHwTitle(it) },
+                            label = { Text("عنوان الواجب") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1.3f)
+                        )
+                        OutlinedTextField(
+                            value = if (state.hwLessonDate.isBlank()) SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) else state.hwLessonDate,
+                            onValueChange = { viewModel.setHwLessonDate(it) },
+                            label = { Text("تاريخ الحصة") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
-                    // Photo Action Buttons
+                    // Photo Action Buttons (Multi-Page Support)
+                    Text("تصوير صفحات الواجب بالكاميرا أو المعرض:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -783,11 +909,17 @@ private fun HomeworkScannerView(
                         ) {
                             Icon(Icons.Filled.CameraAlt, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("التقاط بالكاميرا")
+                            Text("التقاط صورة 📸")
                         }
 
                         OutlinedButton(
-                            onClick = { pickImageLauncher.launch("image/*") },
+                            onClick = {
+                                try {
+                                    pickImageLauncher.launch("image/*")
+                                } catch (_: Exception) {
+                                    pickSingleImageLauncher.launch("image/*")
+                                }
+                            },
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1f)
@@ -795,42 +927,69 @@ private fun HomeworkScannerView(
                         ) {
                             Icon(Icons.Filled.Image, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("من الملفات / المعرض")
+                            Text("من المعرض 📁")
                         }
                     }
 
-                    // Photo Preview (if captured)
-                    state.hwPhotoPath?.let { path ->
+                    // Photos Thumbnails List (if captured)
+                    val currentPhotos = if (state.hwPhotoPaths.isNotEmpty()) state.hwPhotoPaths else listOfNotNull(state.hwPhotoPath)
+                    if (currentPhotos.isNotEmpty()) {
                         Card(
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    AsyncImage(
-                                        model = File(path),
-                                        contentDescription = "صورة الواجب",
-                                        modifier = Modifier
-                                            .size(60.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { viewingPhotoPath = path },
-                                        contentScale = ContentScale.Crop
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "📄 صفحات الواجب الملتقطة (${currentPhotos.size})",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = EmeraldSuccess
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text("تم إرفاق صورة الواجب ✓", fontWeight = FontWeight.Bold, color = EmeraldSuccess)
-                                        Text("اضغط على الصورة للمعاينة المكبرة", style = MaterialTheme.typography.labelSmall)
+                                    TextButton(onClick = { viewModel.clearHwPhotos() }) {
+                                        Text("مسح الكل", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
-                                IconButton(onClick = { viewModel.setHwPhotoPath(null) }) {
-                                    Icon(Icons.Filled.Close, contentDescription = "حذف الصورة", tint = MaterialTheme.colorScheme.error)
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(currentPhotos.indices.toList()) { index ->
+                                        val p = currentPhotos[index]
+                                        Box(modifier = Modifier.size(74.dp)) {
+                                            AsyncImage(
+                                                model = File(p),
+                                                contentDescription = "صفحة ${index + 1}",
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .clickable { viewingPhotoPath = p },
+                                                contentScale = ContentScale.Crop
+                                            )
+                                            Surface(
+                                                color = Color.Black.copy(alpha = 0.65f),
+                                                shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
+                                                modifier = Modifier.align(Alignment.TopStart)
+                                            ) {
+                                                Text(
+                                                    text = "${index + 1}",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = { viewModel.removeHwPhotoPath(index) },
+                                                modifier = Modifier
+                                                    .size(22.dp)
+                                                    .align(Alignment.TopEnd)
+                                                    .background(Color.Red, CircleShape)
+                                            ) {
+                                                Icon(Icons.Filled.Close, contentDescription = "حذف", tint = Color.White, modifier = Modifier.size(14.dp))
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -881,18 +1040,30 @@ private fun HomeworkScannerView(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // Save Button
+                    // Primary Button: Capture & Save Homework as PDF
                     Button(
-                        onClick = { viewModel.saveHomeworkSubmission() },
+                        onClick = {
+                            viewModel.saveAndGenerateHomeworkPdf(context) { generatedFile ->
+                                showPdfSuccessDialog = generatedFile
+                            }
+                        },
+                        enabled = !state.isSavingHomework,
                         colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(52.dp)
                             .testTag("save_homework_btn")
                     ) {
-                        Icon(Icons.Filled.Save, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("حفظ تقييم الواجب في السجل", fontWeight = FontWeight.Bold)
+                        if (state.isSavingHomework) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("جاري توليد ملف PDF...")
+                        } else {
+                            Icon(Icons.Filled.PictureAsPdf, contentDescription = null, tint = AmberGold)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("📸 تصوير وحفظ كملف PDF", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
                     }
                 }
             }
@@ -910,13 +1081,16 @@ private fun HomeworkScannerView(
             item {
                 EmptyStateWidget(
                     title = "لا توجد واجبات مصححة في السجل",
-                    description = "التقط صورة الواجب بالكاميرا أو اختر من الملفات ثم اضغط حفظ لتسجيل التقييم",
+                    description = "التقط صورة الواجب بالكاميرا أو اختر من الملفات ثم اضغط حفظ لتوليد ملف PDF وحفظ التقييم",
                     icon = Icons.Filled.Assignment
                 )
             }
         } else {
             items(state.homeworkSubmissions, key = { it.id }) { hw ->
                 val student = state.students.find { it.id == hw.studentId }
+                val isPdf = hw.photoUri.endsWith(".pdf", ignoreCase = true)
+                val targetFile = if (hw.photoUri.isNotEmpty()) File(hw.photoUri) else null
+
                 Card(
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -931,7 +1105,23 @@ private fun HomeworkScannerView(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            if (hw.photoUri.isNotEmpty() && File(hw.photoUri).exists()) {
+                            if (isPdf) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFFDC2626).copy(alpha = 0.12f),
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .clickable {
+                                            if (targetFile != null && targetFile.exists()) {
+                                                PdfReportExporter.sharePdf(context, targetFile, targetFile.name)
+                                            }
+                                        }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Filled.PictureAsPdf, contentDescription = "PDF", tint = Color(0xFFDC2626), modifier = Modifier.size(28.dp))
+                                    }
+                                }
+                            } else if (hw.photoUri.isNotEmpty() && File(hw.photoUri).exists()) {
                                 AsyncImage(
                                     model = File(hw.photoUri),
                                     contentDescription = "معاينة",
@@ -960,6 +1150,11 @@ private fun HomeworkScannerView(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
+                                Text(
+                                    text = "تاريخ: ${hw.assignedDate}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                                 if (hw.feedbackNote.isNotEmpty()) {
                                     Text(
                                         text = hw.feedbackNote,
@@ -972,18 +1167,37 @@ private fun HomeworkScannerView(
                             }
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            IconButton(
-                                onClick = { viewModel.shareHomeworkFeedback(context, hw) },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(Icons.Filled.Share, contentDescription = "إرسال لواتساب ولي الأمر", tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (targetFile != null && targetFile.exists()) {
+                                IconButton(
+                                    onClick = {
+                                        val parentPhone = student?.parentPhone?.ifEmpty { student.phone } ?: ""
+                                        val teacherName = state.teacher.name.ifEmpty { "معلم المادة" }
+                                        val caption = "📄 *واجب الطالب: ${student?.name ?: ""}*\nالدرجة: ${hw.score}/${hw.maxScore} (${hw.rating})\nمعلم المادة: $teacherName"
+                                        if (isPdf) {
+                                            PdfReportExporter.sharePdfToWhatsApp(context, targetFile, caption, parentPhone)
+                                        } else {
+                                            viewModel.shareHomeworkFeedback(context, hw)
+                                        }
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Filled.Send, contentDescription = "واتساب ولي الأمر", tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
+                                }
+                                IconButton(
+                                    onClick = {
+                                        PdfReportExporter.sharePdf(context, targetFile, targetFile.name)
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Filled.Share, contentDescription = "مشاركة", tint = NavyPrimary, modifier = Modifier.size(20.dp))
+                                }
                             }
                             IconButton(
                                 onClick = { viewModel.deleteHomework(hw) },
                                 modifier = Modifier.size(36.dp)
                             ) {
-                                Icon(Icons.Outlined.Delete, contentDescription = "حذف", tint = Color.Gray, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Filled.DeleteOutline, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
@@ -2442,6 +2656,79 @@ private fun SmartEducationalTranslatorView(
 
         item {
             Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+// ==========================================
+// 11. CASIO FX SCIENTIFIC CALCULATOR VIEW
+// ==========================================
+@Composable
+private fun CasioCalculatorToolView() {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E242B)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 4.dp)
+            .testTag("teacher_tools_casio_calculator")
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Header Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "CASIO",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 18.sp,
+                        color = Color(0xFFE2E8F0),
+                        letterSpacing = 2.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFF334155)
+                    ) {
+                        Text(
+                            text = "fx-991ES PLUS",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFF1E3A8A).copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, Color(0xFF3B82F6))
+                ) {
+                    Text(
+                        text = "NATURAL-V.P.A.M.",
+                        color = Color(0xFF93C5FD),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            CasioCalculatorContent()
         }
     }
 }

@@ -39,6 +39,8 @@ val PurpleAccent = Color(0xFF7C3AED)
 val PurpleAccentContainer = Color(0xFFEDE9FE)
 val TealAccent = Color(0xFF0D9488)
 val TealAccentContainer = Color(0xFFCCFBF1)
+val OrangeAccent = Color(0xFFEA580C)
+val OrangeAccentContainer = Color(0xFFFFEDD5)
 
 // Neutral Grays
 val SurfaceLight = Color(0xFFF8FAFC)

@@ -2693,16 +2693,25 @@ fun PdfViewerScreen(
                             onClick = {
                                 selected2DShape = shape
                                 val centerWorld = (-panOffset + Offset(400f, 650f)) / zoomScale
-                                activeVertexShape = VertexShapeState(
-                                    type = shape,
-                                    vertices = createDefaultVerticesForShape(shape, center = centerWorld),
+                                val vertices = createDefaultVerticesForShape(shape, center = centerWorld)
+                                val new2DShape = MovableShapeItem(
+                                    type2D = shape,
+                                    center = centerWorld,
+                                    vertices = vertices,
                                     color = selectedColor,
                                     strokeWidth = strokeWidth,
-                                    isFilled = isFilledShape
+                                    isFilled = isFilledShape,
+                                    size = 180f
                                 )
-                                isVertexEditorActive = true
-                                activeTool = ActiveTool.VERTEX_EDITOR
+                                movableShapes.add(new2DShape)
+                                selectedMovableShapeId = new2DShape.id
+                                activeTool = ActiveTool.SELECT
                                 show2DShapesSheet = false
+                                Toast.makeText(
+                                    context,
+                                    if (L.isArabic()) "تم إدراج الشكل وتحديده للتحريك الفوري 📐 (اسحبه في أي مكان أو عدل رؤوسه)" else "Placed shape with immediate move controls 📐",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             },
                             label = { Text(shape.getLocalizedTitle(), fontSize = 11.sp) },
                             shape = RoundedCornerShape(8.dp)

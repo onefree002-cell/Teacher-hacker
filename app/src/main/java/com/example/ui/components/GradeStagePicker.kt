@@ -64,6 +64,13 @@ object EducationalStages {
         "عام / غير محدد"
     )
 
+    fun getStages(): List<GradeStageCategory> = listOf(
+        GradeStageCategory(L.primaryStage(), "🎒", PRIMARY_GRADES, Color(0xFF10B981)),
+        GradeStageCategory(L.preparatoryStage(), "📚", PREPARATORY_GRADES, Color(0xFF3B82F6)),
+        GradeStageCategory(L.secondaryStage(), "🎓", SECONDARY_GRADES, Color(0xFF8B5CF6)),
+        GradeStageCategory(L.otherStage(), "🌟", OTHER_GRADES, Color(0xFFF59E0B))
+    )
+
     val STAGES = listOf(
         GradeStageCategory("المرحلة الابتدائية (1 - 6)", "🎒", PRIMARY_GRADES, Color(0xFF10B981)),
         GradeStageCategory("المرحلة الإعدادية (1 - 3)", "📚", PREPARATORY_GRADES, Color(0xFF3B82F6)),
@@ -147,7 +154,7 @@ fun GradeStageSelectorField(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = selectedGrade.ifBlank { "اختر الصف الدراسي..." },
+                            text = if (selectedGrade.isNotBlank()) L.localizedGrade(selectedGrade) else "اختر الصف الدراسي...",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = if (selectedGrade.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
@@ -193,8 +200,9 @@ fun GradeStagePickerDialog(
     onGradeSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val stages = remember { EducationalStages.getStages() }
     var selectedStageIndex by remember {
-        val idx = EducationalStages.STAGES.indexOfFirst { stage ->
+        val idx = stages.indexOfFirst { stage ->
             stage.grades.any { it == selectedGrade || it.contains(selectedGrade) }
         }
         mutableIntStateOf(if (idx >= 0) idx else 0)
@@ -264,7 +272,7 @@ fun GradeStagePickerDialog(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     divider = {}
                 ) {
-                    EducationalStages.STAGES.forEachIndexed { index, stage ->
+                    stages.forEachIndexed { index, stage ->
                         val isSelected = selectedStageIndex == index
                         Tab(
                             selected = isSelected,
@@ -280,7 +288,7 @@ fun GradeStagePickerDialog(
                     }
                 }
 
-                val currentStage = EducationalStages.STAGES[selectedStageIndex]
+                val currentStage = stages[selectedStageIndex]
 
                 Text(
                     text = "صفوف ${currentStage.stageName}:",
@@ -326,7 +334,7 @@ fun GradeStagePickerDialog(
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Text(
-                                        text = gradeName,
+                                        text = L.localizedGrade(gradeName),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                         ),
@@ -382,7 +390,7 @@ fun GradeStageFilterBar(
                 onClick = { onGradeSelected(grade) },
                 label = {
                     Text(
-                        text = grade,
+                        text = L.localizedGrade(grade),
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

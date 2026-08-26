@@ -21,10 +21,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -348,8 +350,9 @@ fun CasioCalculatorBody(
     }
 
     // Outer Casio Real Physical Curved Casing (Silver-Slate Gradient Body)
-    Card(
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 22.dp, bottomEnd = 22.dp),
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Card(
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 22.dp, bottomEnd = 22.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF1E242C) // Real fx-991ES dark slate lower casing
         ),
@@ -798,6 +801,7 @@ fun CasioCalculatorBody(
             }
         }
     }
+}
 }
 
 data class ScientificKey(

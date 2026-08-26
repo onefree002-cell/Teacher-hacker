@@ -42,6 +42,7 @@ fun StudentDetailScreen(
     onNavigateHome: (() -> Unit)? = null,
     onNavigateToReportBuilder: (Long) -> Unit,
     onNavigateToCertificateDesigner: (Long) -> Unit,
+    onNavigateToHomeworkScanner: ((Long) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -179,36 +180,54 @@ fun StudentDetailScreen(
                     }
                 }
 
-                // 2. Direct Communication Actions
+                // 2. Direct Communication & Homework Actions
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Button(
-                            onClick = { showWhatsAppDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(Icons.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("واتساب ولي الأمر")
-                        }
-
-                        if (details.student.phone.isNotEmpty() || details.student.parentPhone.isNotEmpty()) {
-                            OutlinedButton(
-                                onClick = {
-                                    val phoneToCall = details.student.parentPhone.ifEmpty { details.student.phone }
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phoneToCall"))
-                                    context.startActivity(intent)
-                                },
+                            Button(
+                                onClick = { showWhatsAppDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("اتصال هاتف")
+                                Text("واتساب ولي الأمر")
+                            }
+
+                            if (details.student.phone.isNotEmpty() || details.student.parentPhone.isNotEmpty()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val phoneToCall = details.student.parentPhone.ifEmpty { details.student.phone }
+                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phoneToCall"))
+                                        context.startActivity(intent)
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("اتصال هاتف")
+                                }
+                            }
+                        }
+
+                        // 1-Tap Homework Capture & PDF Export Button
+                        if (onNavigateToHomeworkScanner != null) {
+                            Button(
+                                onClick = { onNavigateToHomeworkScanner(details.student.id) },
+                                colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("student_capture_homework_pdf_btn")
+                            ) {
+                                Icon(Icons.Filled.CameraAlt, contentDescription = null, tint = AmberGold, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("📸 تصوير وحفظ واجب الطالب (PDF)", fontWeight = FontWeight.Bold)
                             }
                         }
                     }

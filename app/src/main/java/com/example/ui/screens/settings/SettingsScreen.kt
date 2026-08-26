@@ -43,11 +43,16 @@ fun SettingsScreen(
     val isPinSet by com.example.util.PinLockManager.isPinSet.collectAsState()
     var showPinDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showTourDialog by remember { mutableStateOf(false) }
     var pinInputValue by remember { mutableStateOf("") }
     var pinErrorMessage by remember { mutableStateOf<String?>(null) }
 
     if (showLanguageDialog) {
         com.example.ui.components.LanguageSelectionDialog(onDismiss = { showLanguageDialog = false })
+    }
+
+    if (showTourDialog) {
+        com.example.ui.components.AppGuidedTourDialog(onDismiss = { showTourDialog = false })
     }
 
     Scaffold(
@@ -427,6 +432,21 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(14.dp))
+                        Button(
+                            onClick = { showTourDialog = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("settings_start_tour_btn"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AmberGoldDark)
+                        ) {
+                            Icon(Icons.Filled.Tour, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("الجولة التعريفية الشاملة بالتطبيق 🚀", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
                         FilledTonalButton(
                             onClick = onNavigateToPoster,
                             modifier = Modifier

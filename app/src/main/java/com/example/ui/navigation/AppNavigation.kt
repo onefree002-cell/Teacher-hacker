@@ -104,11 +104,34 @@ fun AppNavigation(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    val hasSeenTour by AppPreferencesManager.hasSeenTour.collectAsState()
+    var showGuidedTourDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(hasSeenTour, currentRoute) {
+        if (!hasSeenTour && currentRoute == Screen.Dashboard.route) {
+            showGuidedTourDialog = true
+        }
+    }
+
+    if (showGuidedTourDialog) {
+        com.example.ui.components.AppGuidedTourDialog(
+            onDismiss = {
+                showGuidedTourDialog = false
+                AppPreferencesManager.setHasSeenTour(true)
+            },
+            onNavigateToScreen = { route ->
+                showGuidedTourDialog = false
+                AppPreferencesManager.setHasSeenTour(true)
+                navController.navigate(route)
+            }
+        )
+    }
+
     val startDestination = Screen.Dashboard.route
 
     val shouldShowBottomBar = currentRoute != null &&
             currentRoute != Screen.Onboarding.route &&
-            Screen.bottomNavItems.any { it.route == currentRoute }
+            (Screen.bottomNavItems.any { it.route == currentRoute } || currentRoute.startsWith("teacher_tools"))
 
     Scaffold(
         bottomBar = {
@@ -118,7 +141,10 @@ fun AppNavigation(
                     tonalElevation = 3.dp
                 ) {
                     Screen.bottomNavItems.forEach { screen ->
-                        val isSelected = currentRoute == screen.route
+                        val isSelected = when (screen) {
+                            is Screen.TeacherTools -> currentRoute?.startsWith("teacher_tools") == true
+                            else -> currentRoute == screen.route
+                        }
                         val navIcon = if (isSelected) (screen.selectedIcon ?: screen.unselectedIcon) else (screen.unselectedIcon ?: screen.selectedIcon)
                         NavigationBarItem(
                             icon = {
@@ -129,11 +155,15 @@ fun AppNavigation(
                                     )
                                 }
                             },
-                            label = { Text(screen.getLocalizedTitle()) },
+                            label = { Text(screen.getLocalizedTitle(), maxLines = 1) },
                             selected = isSelected,
                             onClick = {
-                                if (currentRoute != screen.route) {
-                                    navController.navigate(screen.route) {
+                                val targetRoute = when (screen) {
+                                    is Screen.TeacherTools -> Screen.TeacherTools.createRoute()
+                                    else -> screen.route
+                                }
+                                if (!isSelected) {
+                                    navController.navigate(targetRoute) {
                                         popUpTo(navController.graph.findStartDestination().id) {
                                             saveState = true
                                         }
@@ -142,7 +172,7 @@ fun AppNavigation(
                                     }
                                 }
                             },
-                            modifier = Modifier.testTag("nav_item_${screen.route}")
+                            modifier = Modifier.testTag("nav_item_${screen.route.substringBefore('?')}")
                         )
                     }
                 }
@@ -270,6 +300,9 @@ fun AppNavigation(
                     },
                     onNavigateToCertificateDesigner = { sId ->
                         navController.navigate(Screen.Certificates.createRoute(sId))
+                    },
+                    onNavigateToHomeworkScanner = { sId ->
+                        navController.navigate(Screen.TeacherTools.createRoute(studentId = sId, tabIndex = 0))
                     }
                 )
             }
@@ -421,9 +454,35 @@ fun AppNavigation(
             }
 
             // 20. Teacher Tools Hub (أدوات المعلم)
-            composable(Screen.TeacherTools.route) {
+            composable(
+                route = Screen.TeacherTools.route,
+                arguments = listOf(
+                    navArgument("studentId") {
+                        type = NavType.LongType
+                        defaultValue = 0L
+                    },
+                    navArgument("tabIndex") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    }
+                )
+            ) { backStackEntry ->
+                val sId = backStackEntry.arguments?.getLong("studentId") ?: 0L
+                val tabIdx = backStackEntry.arguments?.getInt("tabIndex") ?: 0
+                val targetTab = remember(tabIdx) {
+                    if (tabIdx == 0) com.example.ui.screens.tools.TeacherToolsTab.HOMEWORK_SCANNER
+                    else com.example.ui.screens.tools.TeacherToolsTab.entries.getOrElse(tabIdx) {
+                        com.example.ui.screens.tools.TeacherToolsTab.HOMEWORK_SCANNER
+                    }
+                }
+                LaunchedEffect(sId) {
+                    if (sId > 0L) {
+                        teacherToolsViewModel.setHwStudent(sId)
+                    }
+                }
                 TeacherToolsScreen(
                     viewModel = teacherToolsViewModel,
+                    initialTab = targetTab,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
                     onNavigateToStudents = { navController.navigate(Screen.Students.route) },
