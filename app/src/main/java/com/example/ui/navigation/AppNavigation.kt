@@ -489,7 +489,8 @@ fun AppNavigation(
                     onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
                     onNavigateToStudents = { navController.navigate(Screen.Students.route) },
                     onNavigateToSmartPrep = { navController.navigate(Screen.SmartPrep.route) },
-                    onNavigateToAiChat = { navController.navigate(Screen.AiChat.route) }
+                    onNavigateToAiChat = { navController.navigate(Screen.AiChat.route) },
+                    onNavigateToStudyFiles = { navController.navigate(Screen.StudyFiles.createRoute()) }
                 )
             }
 

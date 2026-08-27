@@ -78,6 +78,7 @@ enum class TeacherToolsTab(
     TRANSLATOR("مترجم المصطلحات التربوي", "قاموس ومترجم لمصطلحات الرياضيات والعلوم واللغات", "الرياضيات والحساب", Icons.Filled.Translate, Color(0xFF2563EB)),
     BOOKLET_TRACKER("سجل تسليم المذكرات", "متابعة تسليم واستلام الشيتات والكتب والمصاريف", "الإدارة والطباعة", Icons.Filled.MenuBook, EmeraldSuccess),
     PORTFOLIO_CARDS("بورتفوليو وبطاقة المعلم", "شيت كروت شخصية وباركود تعريفي فاخر للطباعة", "الإدارة والطباعة", Icons.Filled.Badge, Color(0xFFD97706)),
+    MATH_BOOKS_DOWNLOADER("تحميل كتب الرياضيات الخارجية", "تحميل الكتب الخارجية ومذكرات الرياضيات من mathedu03.eyoo.org", "الرياضيات والحساب", Icons.Filled.CloudDownload, Color(0xFF0D9488)),
     PRINT_HUB("مركز الطباعة السريع", "طباعة كارنيهات الطلاب، لوحة الشرف، وجداول الحصص", "الإدارة والطباعة", Icons.Filled.Print, NavyPrimary),
     TEMPLATES("قوالب رسائل الواتساب", "رسائل تشجيع وترحيب ومتابعة جاهزة للمشاركة", "الإدارة والطباعة", Icons.Filled.Send, Color(0xFFEC4899));
 
@@ -91,6 +92,7 @@ enum class TeacherToolsTab(
         BOOKLET_TRACKER -> com.example.util.L.bookletTracker()
         PORTFOLIO_CARDS -> com.example.util.L.portfolioCards()
         CASIO_CALC -> com.example.util.L.casioCalculator()
+        MATH_BOOKS_DOWNLOADER -> com.example.util.L.mathBooksDownloader()
         PRINT_HUB -> com.example.util.L.printHub()
         TEMPLATES -> com.example.util.L.templates()
     }
@@ -105,7 +107,8 @@ fun TeacherToolsScreen(
     onNavigateToSchedule: () -> Unit = {},
     onNavigateToStudents: () -> Unit = {},
     onNavigateToSmartPrep: () -> Unit = {},
-    onNavigateToAiChat: () -> Unit = {}
+    onNavigateToAiChat: () -> Unit = {},
+    onNavigateToStudyFiles: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -448,6 +451,7 @@ fun TeacherToolsScreen(
                             TeacherToolsTab.BOOKLET_TRACKER -> BookletTrackerView(state, viewModel, context)
                             TeacherToolsTab.PORTFOLIO_CARDS -> TeacherPortfolioAndCardsView(state, context)
                             TeacherToolsTab.CASIO_CALC -> CasioCalculatorToolView()
+                            TeacherToolsTab.MATH_BOOKS_DOWNLOADER -> MathBooksDownloaderView(onNavigateToStudyFiles = onNavigateToStudyFiles)
                             TeacherToolsTab.PRINT_HUB -> QuickPrintHubView(state, viewModel, context, onNavigateToSchedule)
                             TeacherToolsTab.TEMPLATES -> MotivationTemplatesView(state, context)
                         }

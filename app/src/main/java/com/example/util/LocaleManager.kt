@@ -1133,4 +1133,10 @@ object L {
         AppLanguage.ENGLISH -> "Casio FX Scientific Calculator"
         AppLanguage.FRENCH -> "Calculatrice Scientifique Casio"
     }
+
+    fun mathBooksDownloader(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "تحميل كتب الرياضيات الخارجية"
+        AppLanguage.ENGLISH -> "Math Books & External Guides"
+        AppLanguage.FRENCH -> "Livres et Guides de Mathématiques"
+    }
 }

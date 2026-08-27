@@ -1,10 +1,15 @@
 package com.example.ui.screens.studyfiles
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.StudyFileEntity
 import com.example.ui.components.AppTopBar
+import com.example.ui.screens.tools.MATH_EDU_URL
+import com.example.ui.screens.tools.InAppMathEduBrowserDialog
 import com.example.ui.theme.*
 import com.example.util.StudyFileManager
 
@@ -46,6 +53,7 @@ fun StudyFilesScreen(
     val context = LocalContext.current
 
     var showAddFileDialog by remember { mutableStateOf(false) }
+    var showMathEduBrowserDialog by remember { mutableStateOf(false) }
     var selectedFileToDelete by remember { mutableStateOf<StudyFileEntity?>(null) }
 
     LaunchedEffect(initialGradeFilter) {
@@ -152,6 +160,132 @@ fun StudyFilesScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+
+                    // External Math Books Portal Card (mathedu03.eyoo.org)
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F766E).copy(alpha = 0.08f)),
+                        border = BorderStroke(1.dp, Color(0xFF0D9488).copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth().testTag("math_books_portal_banner")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.MenuBook,
+                                        contentDescription = null,
+                                        tint = Color(0xFF0D9488),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "موقع تحميل كتب ومذكرات الرياضيات الخارجية 🌐",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = Color(0xFF0F766E)
+                                    )
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF0D9488).copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = "mathedu03.eyoo.org",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = Color(0xFF0F766E),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = "حمل كتب المعاصر والأضواء وسلاح التلميذ والشامل ومذكرات التوجيه بصيغة PDF ثم اضغط رفع لحفظها ومشاركتها في حصصك.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Button(
+                                    onClick = { showMathEduBrowserDialog = true },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF0D9488),
+                                        contentColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(32.dp).weight(1.2f).testTag("browse_math_edu_btn")
+                                ) {
+                                    Icon(Icons.Filled.Language, contentDescription = null, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("تصفح وتحميل الكتب 📱", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(MATH_EDU_URL))
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "تعذر فتح المتصفح", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(32.dp).weight(0.9f)
+                                ) {
+                                    Icon(Icons.Filled.OpenInBrowser, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("المتصفح", fontSize = 11.sp)
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val clip = ClipData.newPlainText("Math Edu Books URL", MATH_EDU_URL)
+                                        clipboard.setPrimaryClip(clip)
+                                        Toast.makeText(context, "تم نسخ رابط الموقع 📋", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Filled.ContentCopy, contentDescription = "نسخ", tint = Color(0xFF0D9488), modifier = Modifier.size(16.dp))
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        try {
+                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(
+                                                    Intent.EXTRA_TEXT,
+                                                    "📚 موقع كتب ومذكرات الرياضيات الخارجية:\n$MATH_EDU_URL"
+                                                )
+                                            }
+                                            context.startActivity(Intent.createChooser(shareIntent, "مشاركة رابط موقع الرياضيات"))
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "تعذر المشاركة", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Filled.Share, contentDescription = "مشاركة", tint = EmeraldSuccess, modifier = Modifier.size(16.dp))
+                                }
+                            }
                         }
                     }
 
@@ -381,6 +515,13 @@ fun StudyFilesScreen(
             dismissButton = {
                 TextButton(onClick = { selectedFileToDelete = null }) { Text("إلغاء") }
             }
+        )
+    }
+
+    if (showMathEduBrowserDialog) {
+        InAppMathEduBrowserDialog(
+            url = MATH_EDU_URL,
+            onDismiss = { showMathEduBrowserDialog = false }
         )
     }
 }
