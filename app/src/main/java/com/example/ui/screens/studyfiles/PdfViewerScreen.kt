@@ -351,24 +351,47 @@ fun PdfViewerScreen(
         )
     }
 
-    // Initialize PDF
+    // Initialize PDF or Image Document
     LaunchedEffect(filePath) {
         if (filePath.isNotBlank()) {
             val file = File(filePath)
-            if (file.exists() && file.length() > 0 && filePath.endsWith(".pdf", ignoreCase = true)) {
-                isLoadingPdf = true
-                try {
-                    val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-                    fileDescriptor = pfd
-                    val renderer = PdfRenderer(pfd)
-                    pdfRenderer = renderer
-                    totalPages = renderer.pageCount
-                    loadPdfPage(0)
-                    boardMode = BoardMode.PDF
-                } catch (e: Exception) {
+            if (file.exists() && file.length() > 0) {
+                if (filePath.endsWith(".pdf", ignoreCase = true)) {
+                    isLoadingPdf = true
+                    try {
+                        val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                        fileDescriptor = pfd
+                        val renderer = PdfRenderer(pfd)
+                        pdfRenderer = renderer
+                        totalPages = renderer.pageCount
+                        loadPdfPage(0)
+                        boardMode = BoardMode.PDF
+                    } catch (e: Exception) {
+                        boardMode = BoardMode.WHITEBOARD
+                    } finally {
+                        isLoadingPdf = false
+                    }
+                } else if (filePath.endsWith(".jpg", ignoreCase = true) ||
+                    filePath.endsWith(".jpeg", ignoreCase = true) ||
+                    filePath.endsWith(".png", ignoreCase = true) ||
+                    filePath.endsWith(".webp", ignoreCase = true)
+                ) {
+                    isLoadingPdf = true
+                    try {
+                        val bmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                        if (bmp != null) {
+                            currentPageBitmap = bmp.asImageBitmap()
+                            totalPages = 1
+                            currentPageIndex = 0
+                            boardMode = BoardMode.PDF
+                        }
+                    } catch (e: Exception) {
+                        boardMode = BoardMode.WHITEBOARD
+                    } finally {
+                        isLoadingPdf = false
+                    }
+                } else {
                     boardMode = BoardMode.WHITEBOARD
-                } finally {
-                    isLoadingPdf = false
                 }
             } else {
                 boardMode = BoardMode.WHITEBOARD

@@ -656,8 +656,7 @@ class TeacherToolsViewModel(
 📝 *تقرير تقييم وتصحيح الواجب الدراسي*
 الطالب: *${student?.name ?: "البطل"}*
 عنوان الواجب: *${hw.title}*
-الدرجة: *${hw.score} / ${hw.maxScore}*
-التقييم: *${hw.rating}*
+حالة الواجب والتقييم: *${hw.rating}*
 ملاحظات المعلم: ${hw.feedbackNote.ifEmpty { "مجهود رائع وبارك الله فيك!" }}
 
 معلم المادة: *$teacherName*

@@ -150,16 +150,31 @@ class ScheduleViewModel(
         _uiState.value = _uiState.value.copy(statusMessage = null)
     }
 
-    fun addOrUpdateSession(session: SessionEntity, onConflict: (String) -> Unit, onSuccess: () -> Unit) {
+    fun addOrUpdateSession(
+        context: Context? = null,
+        session: SessionEntity,
+        onConflict: (String) -> Unit,
+        onSuccess: () -> Unit
+    ) {
         viewModelScope.launch {
             val conflict = repository.checkSessionConflict(session.day, session.time, session.durationMinutes, session.id)
             if (conflict != null) {
                 onConflict(conflict)
             } else {
-                if (session.id == 0L) {
+                val finalId = if (session.id == 0L) {
                     repository.insertSession(session)
                 } else {
                     repository.updateSession(session)
+                    session.id
+                }
+
+                if (context != null) {
+                    val group = _uiState.value.groups.firstOrNull { it.id == session.groupId }
+                    com.example.util.SessionAlarmScheduler.scheduleSessionAlarm(
+                        context = context,
+                        session = session.copy(id = finalId),
+                        groupName = group?.name ?: "مجموعة دراسية"
+                    )
                 }
                 onSuccess()
             }
@@ -172,9 +187,23 @@ class ScheduleViewModel(
         }
     }
 
-    fun deleteSession(session: SessionEntity) {
+    fun deleteSession(context: Context? = null, session: SessionEntity) {
         viewModelScope.launch {
+            if (context != null) {
+                com.example.util.SessionAlarmScheduler.cancelSessionAlarm(context, session.id)
+            }
             repository.deleteSession(session)
+        }
+    }
+
+    fun rescheduleAllAlarms(context: Context) {
+        viewModelScope.launch {
+            val sessions = repository.allSessions.firstOrNull() ?: emptyList()
+            val groups = repository.allGroups.firstOrNull() ?: emptyList()
+            com.example.util.SessionAlarmScheduler.rescheduleAllSessions(context, sessions, groups)
+            _uiState.value = _uiState.value.copy(
+                statusMessage = "تمت إعادة جدولة وتفعيل تنبيهات جميع الحصص بنجاح 🔔"
+            )
         }
     }
 }

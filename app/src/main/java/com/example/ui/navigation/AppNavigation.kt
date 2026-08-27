@@ -303,6 +303,9 @@ fun AppNavigation(
                     },
                     onNavigateToHomeworkScanner = { sId ->
                         navController.navigate(Screen.TeacherTools.createRoute(studentId = sId, tabIndex = 0))
+                    },
+                    onOpenHomeworkInPdfViewer = { filePath, title ->
+                        navController.navigate(Screen.PdfViewer.createRoute(filePath, title))
                     }
                 )
             }
@@ -463,17 +466,16 @@ fun AppNavigation(
                     },
                     navArgument("tabIndex") {
                         type = NavType.IntType
-                        defaultValue = 0
+                        defaultValue = -1
                     }
                 )
             ) { backStackEntry ->
                 val sId = backStackEntry.arguments?.getLong("studentId") ?: 0L
-                val tabIdx = backStackEntry.arguments?.getInt("tabIndex") ?: 0
+                val tabIdx = backStackEntry.arguments?.getInt("tabIndex") ?: -1
                 val targetTab = remember(tabIdx) {
-                    if (tabIdx == 0) com.example.ui.screens.tools.TeacherToolsTab.HOMEWORK_SCANNER
-                    else com.example.ui.screens.tools.TeacherToolsTab.entries.getOrElse(tabIdx) {
-                        com.example.ui.screens.tools.TeacherToolsTab.HOMEWORK_SCANNER
-                    }
+                    if (tabIdx >= 0) {
+                        com.example.ui.screens.tools.TeacherToolsTab.entries.getOrNull(tabIdx)
+                    } else null
                 }
                 LaunchedEffect(sId) {
                     if (sId > 0L) {

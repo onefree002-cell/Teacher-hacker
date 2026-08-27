@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
             PinLockManager.init(applicationContext)
             com.example.util.AppPreferencesManager.init(applicationContext)
             com.example.util.LocaleManager.init(applicationContext)
+            com.example.util.SessionNotificationHelper.createNotificationChannels(applicationContext)
         } catch (e: Exception) {
             e.printStackTrace()
         }

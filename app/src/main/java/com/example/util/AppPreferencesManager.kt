@@ -15,6 +15,10 @@ object AppPreferencesManager {
     private const val KEY_AUTO_BACKUP_TARGET = "pref_auto_backup_target" // "telegram", "local", "both"
     private const val KEY_TELEGRAM_NUMBER = "pref_telegram_number"
     private const val KEY_LAST_BACKUP_TIME = "pref_last_backup_time"
+    private const val KEY_SESSION_ALERTS_ENABLED = "pref_session_alerts_enabled"
+    private const val KEY_SESSION_ALERT_MINUTES_BEFORE = "pref_session_alert_minutes_before"
+    private const val KEY_SESSION_ALERT_SOUND = "pref_session_alert_sound"
+    private const val KEY_SESSION_ALERT_VIBRATION = "pref_session_alert_vibration"
 
     private var prefs: SharedPreferences? = null
 
@@ -36,6 +40,18 @@ object AppPreferencesManager {
     private val _lastBackupTime = MutableStateFlow(0L)
     val lastBackupTime: StateFlow<Long> = _lastBackupTime.asStateFlow()
 
+    private val _sessionAlertsEnabled = MutableStateFlow(true)
+    val sessionAlertsEnabled: StateFlow<Boolean> = _sessionAlertsEnabled.asStateFlow()
+
+    private val _sessionAlertMinutesBefore = MutableStateFlow(15)
+    val sessionAlertMinutesBefore: StateFlow<Int> = _sessionAlertMinutesBefore.asStateFlow()
+
+    private val _sessionAlertSound = MutableStateFlow("school_bell")
+    val sessionAlertSound: StateFlow<String> = _sessionAlertSound.asStateFlow()
+
+    private val _sessionAlertVibration = MutableStateFlow(true)
+    val sessionAlertVibration: StateFlow<Boolean> = _sessionAlertVibration.asStateFlow()
+
     fun init(context: Context) {
         if (prefs == null) {
             prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -45,6 +61,10 @@ object AppPreferencesManager {
             _autoBackupTarget.value = prefs?.getString(KEY_AUTO_BACKUP_TARGET, "telegram") ?: "telegram"
             _telegramNumber.value = prefs?.getString(KEY_TELEGRAM_NUMBER, "") ?: ""
             _lastBackupTime.value = prefs?.getLong(KEY_LAST_BACKUP_TIME, 0L) ?: 0L
+            _sessionAlertsEnabled.value = prefs?.getBoolean(KEY_SESSION_ALERTS_ENABLED, true) ?: true
+            _sessionAlertMinutesBefore.value = prefs?.getInt(KEY_SESSION_ALERT_MINUTES_BEFORE, 15) ?: 15
+            _sessionAlertSound.value = prefs?.getString(KEY_SESSION_ALERT_SOUND, "school_bell") ?: "school_bell"
+            _sessionAlertVibration.value = prefs?.getBoolean(KEY_SESSION_ALERT_VIBRATION, true) ?: true
         }
     }
 
@@ -90,6 +110,26 @@ object AppPreferencesManager {
         val now = System.currentTimeMillis()
         prefs?.edit()?.putLong(KEY_LAST_BACKUP_TIME, now)?.apply()
         _lastBackupTime.value = now
+    }
+
+    fun setSessionAlertsEnabled(enabled: Boolean) {
+        prefs?.edit()?.putBoolean(KEY_SESSION_ALERTS_ENABLED, enabled)?.apply()
+        _sessionAlertsEnabled.value = enabled
+    }
+
+    fun setSessionAlertMinutesBefore(minutes: Int) {
+        prefs?.edit()?.putInt(KEY_SESSION_ALERT_MINUTES_BEFORE, minutes)?.apply()
+        _sessionAlertMinutesBefore.value = minutes
+    }
+
+    fun setSessionAlertSound(sound: String) {
+        prefs?.edit()?.putString(KEY_SESSION_ALERT_SOUND, sound)?.apply()
+        _sessionAlertSound.value = sound
+    }
+
+    fun setSessionAlertVibration(vibration: Boolean) {
+        prefs?.edit()?.putBoolean(KEY_SESSION_ALERT_VIBRATION, vibration)?.apply()
+        _sessionAlertVibration.value = vibration
     }
 
     fun shouldPerformScheduledBackup(): Boolean {

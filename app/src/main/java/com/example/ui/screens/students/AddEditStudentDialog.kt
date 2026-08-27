@@ -35,7 +35,7 @@ import com.example.ui.theme.NavyPrimary
 import com.example.ui.theme.NavyPrimaryContainer
 import com.example.util.ContactPickerHelper
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEditStudentDialog(
     student: StudentEntity? = null,
@@ -46,6 +46,12 @@ fun AddEditStudentDialog(
     val context = LocalContext.current
 
     var name by remember { mutableStateOf(student?.name ?: "") }
+    var barcodeCode by remember {
+        mutableStateOf(
+            if (!student?.barcodeCode.isNullOrBlank()) student!!.barcodeCode
+            else "STD-${(1000..9999).random()}"
+        )
+    }
     var photoUri by remember { mutableStateOf(student?.photoUri) }
     var selectedGroupId by remember { mutableStateOf(student?.groupId ?: (groups.firstOrNull()?.id ?: 0L)) }
     var grade by remember { mutableStateOf(student?.grade ?: (groups.firstOrNull { it.id == selectedGroupId }?.grade ?: "")) }
@@ -55,6 +61,7 @@ fun AddEditStudentDialog(
     var status by remember { mutableStateOf(student?.status ?: "active") }
     var isExempt by remember { mutableStateOf(student?.isExempt ?: false) }
     var discountPercent by remember { mutableStateOf(student?.discountPercent?.toString() ?: "0") }
+    var tags by remember { mutableStateOf(student?.tags ?: "") }
     var notes by remember { mutableStateOf(student?.notes ?: "") }
 
     var groupDropdownExpanded by remember { mutableStateOf(false) }
@@ -241,6 +248,39 @@ fun AddEditStudentDialog(
                     modifier = Modifier.fillMaxWidth().testTag("student_name_input")
                 )
 
+                // 2.5. Student Code / Barcode (كود الطالب / الباركود)
+                OutlinedTextField(
+                    value = barcodeCode,
+                    onValueChange = { barcodeCode = it },
+                    label = { Text("كود الطالب / الباركود") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.QrCode,
+                            contentDescription = "كود الطالب",
+                            tint = NavyPrimary
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                barcodeCode = "STD-${(1000..9999).random()}"
+                                Toast.makeText(context, "تم توليد كود جديد: $barcodeCode", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Icon(
+                                Icons.Filled.Refresh,
+                                contentDescription = "توليد كود تلقائي",
+                                tint = NavyPrimary
+                            )
+                        }
+                    },
+                    supportingText = {
+                        Text("يمكنك كتابة أي كود أو رقم جلوس للطالب (يُستخدم في مسح الحضور وكارنيه الطالب والبحث)")
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("student_code_input")
+                )
+
                 // 3. Group selector
                 ExposedDropdownMenuBox(
                     expanded = groupDropdownExpanded,
@@ -407,11 +447,47 @@ fun AddEditStudentDialog(
                     )
                 }
 
-                // 11. Notes
+                // 11. Tags / Classifications (الوسوم والتصنيف)
+                Text("تصنيف ووسوم الطالب:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                val predefinedTags = listOf("متميز 🌟", "متفوق 🏆", "يحتاج متابعة ⚠️", "ملتزم 👍", "تأسيس 📚", "ضعيف دراسياً")
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val currentTagsList = tags.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                    predefinedTags.forEach { tagItem ->
+                        val isSelected = currentTagsList.contains(tagItem)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                val updatedList = if (isSelected) {
+                                    currentTagsList.filter { it != tagItem }
+                                } else {
+                                    currentTagsList + tagItem
+                                }
+                                tags = updatedList.joinToString(", ")
+                            },
+                            label = { Text(tagItem, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = tags,
+                    onValueChange = { tags = it },
+                    label = { Text("وسوم مخصصة (مفصولة بفواصل)") },
+                    placeholder = { Text("مثال: متميز, أول الدفعة") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // 12. Notes
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("ملاحظات خاصة عن الطالب") },
+                    placeholder = { Text("أي معلومات إضافية أو ملاحظات سلوكية وتوجيهية...") },
                     maxLines = 3,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -426,8 +502,10 @@ fun AddEditStudentDialog(
                     }
                     val cleanPhone = ContactPickerHelper.cleanPhoneNumber(phone)
                     val cleanParentPhone = ContactPickerHelper.cleanPhoneNumber(parentPhone)
-                    val generatedBarcode = student?.barcodeCode?.ifEmpty { "STD-${System.currentTimeMillis() % 1000000}" } 
-                        ?: "STD-${System.currentTimeMillis() % 1000000}"
+                    val finalBarcode = barcodeCode.trim().ifEmpty { 
+                        student?.barcodeCode?.ifEmpty { "STD-${System.currentTimeMillis() % 1000000}" } 
+                            ?: "STD-${System.currentTimeMillis() % 1000000}"
+                    }
 
                     val updated = StudentEntity(
                         id = student?.id ?: 0L,
@@ -442,8 +520,8 @@ fun AddEditStudentDialog(
                         notes = notes.trim(),
                         isExempt = isExempt,
                         discountPercent = discountPercent.toDoubleOrNull() ?: 0.0,
-                        barcodeCode = generatedBarcode,
-                        tags = student?.tags ?: "",
+                        barcodeCode = finalBarcode,
+                        tags = tags.trim(),
                         audioNoteUri = student?.audioNoteUri,
                         createdAt = student?.createdAt ?: System.currentTimeMillis()
                     )

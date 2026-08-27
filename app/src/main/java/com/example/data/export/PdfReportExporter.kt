@@ -3485,8 +3485,8 @@ class PdfReportExporter {
         canvas1.drawText("المجموعة: ${group?.name ?: "بدون مجموعة"} (${student.grade})", 260f, 130f, textPaint)
         canvas1.drawText("تاريخ الحصة: $cleanDate", 260f, 155f, textPaint)
 
-        // 3. Score & Rating Box
-        val scoreBox = RectF(36f, 116f, 130f, 165f)
+        // 3. Status & Evaluation Box
+        val scoreBox = RectF(36f, 116f, 140f, 165f)
         paint.style = Paint.Style.FILL
         paint.color = Color.rgb(238, 242, 255)
         canvas1.drawRoundRect(scoreBox, 8f, 8f, paint)
@@ -3497,13 +3497,14 @@ class PdfReportExporter {
 
         textPaint.textAlign = Paint.Align.CENTER
         textPaint.color = primaryColor
-        textPaint.textSize = 14f
+        textPaint.textSize = 11.5f
         textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas1.drawText("الدرجة: ${score.toInt()}/${maxScore.toInt()}", 83f, 138f, textPaint)
+        canvas1.drawText("حالة الواجب", 88f, 136f, textPaint)
 
         textPaint.textSize = 10f
-        textPaint.color = accentColor
-        canvas1.drawText(rating.ifBlank { "ممتاز ⭐⭐⭐" }, 83f, 156f, textPaint)
+        textPaint.color = if (rating.contains("ممتاز") || rating.contains("كامل")) successColor else accentColor
+        val safeRating = if (rating.length > 18) rating.take(18) else rating.ifBlank { "حل كامل وممتاز 🌟" }
+        canvas1.drawText(safeRating, 88f, 155f, textPaint)
 
         var currentY = 185f
 

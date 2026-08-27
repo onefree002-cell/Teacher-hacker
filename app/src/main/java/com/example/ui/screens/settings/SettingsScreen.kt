@@ -1,5 +1,7 @@
 package com.example.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,8 +47,18 @@ fun SettingsScreen(
     var showPinDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showTourDialog by remember { mutableStateOf(false) }
+    var showAlarmSettingsDialog by remember { mutableStateOf(false) }
     var pinInputValue by remember { mutableStateOf("") }
     var pinErrorMessage by remember { mutableStateOf<String?>(null) }
+
+    if (showAlarmSettingsDialog) {
+        com.example.ui.screens.schedule.SessionAlarmSettingsDialog(
+            onDismiss = { showAlarmSettingsDialog = false },
+            onSettingsChanged = {
+                // Settings updated
+            }
+        )
+    }
 
     if (showLanguageDialog) {
         com.example.ui.components.LanguageSelectionDialog(onDismiss = { showLanguageDialog = false })
@@ -242,6 +255,15 @@ fun SettingsScreen(
                             iconTint = MaterialTheme.colorScheme.primary,
                             onClick = onNavigateToProfile,
                             tag = "settings_profile_row"
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        SettingsItemRow(
+                            icon = Icons.Filled.NotificationsActive,
+                            title = "تنبيهات وجرس الحصص (School Bell)",
+                            subtitle = "تخصيص رنين جرس المدرسة، أوقات التنبيه المسبقة، والاهتزاز",
+                            iconTint = NavyPrimary,
+                            onClick = { showAlarmSettingsDialog = true },
+                            tag = "settings_session_alarms_row"
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         SettingsItemRow(
@@ -457,6 +479,84 @@ fun SettingsScreen(
                             Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("المميزات: عرض واستكشاف كافة مميزات المنظومة 🌟", fontWeight = FontWeight.Bold)
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Direct Developer Contact Card (Telegram)
+                        val context = LocalContext.current
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFF229ED9).copy(alpha = 0.12f)
+                            ),
+                            border = BorderStroke(1.2.dp, Color(0xFF229ED9).copy(alpha = 0.4f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/abdoaiman01"))
+                                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        // Ignore or fallback
+                                    }
+                                }
+                                .testTag("contact_developer_telegram_card")
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF229ED9)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.Send,
+                                            contentDescription = "Telegram",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            "تواصل مع مطور التطبيق 💬",
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            "تيليجرام: @abdoaiman01 (دعم فني واقتراحات)",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF0284C7)
+                                        )
+                                    }
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFF229ED9)
+                                ) {
+                                    Text(
+                                        "مراسلة",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

@@ -47,6 +47,7 @@ fun ScheduleScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showAlarmSettingsDialog by remember { mutableStateOf(false) }
     var initialDayForAdd by remember { mutableStateOf<String?>(null) }
     var initialDateForAdd by remember { mutableStateOf<String?>(null) }
     var sessionToEdit by remember { mutableStateOf<SessionEntity?>(null) }
@@ -121,6 +122,18 @@ fun ScheduleScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                         }
+                    }
+
+                    // Class Alerts & School Bell settings button
+                    IconButton(
+                        onClick = { showAlarmSettingsDialog = true },
+                        modifier = Modifier.testTag("session_alarm_settings_btn")
+                    ) {
+                        Icon(
+                            Icons.Filled.NotificationsActive,
+                            contentDescription = "إعدادات تنبيهات وجرس الحصص",
+                            tint = NavyPrimary
+                        )
                     }
 
                     // Print / Share Schedule PDF button
@@ -222,6 +235,22 @@ fun ScheduleScreen(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // School Bell & Alerts Quick Button
+                        FilledTonalButton(
+                            onClick = { showAlarmSettingsDialog = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = NavyPrimary.copy(alpha = 0.12f),
+                                contentColor = NavyPrimary
+                            ),
+                            modifier = Modifier.height(30.dp).testTag("quick_school_bell_btn")
+                        ) {
+                            Icon(Icons.Filled.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("جرس الحصص", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                        }
+
                         // Quick Share All Day Schedule on WhatsApp
                         TextButton(
                             onClick = {
@@ -688,6 +717,15 @@ fun ScheduleScreen(
         }
     }
 
+    if (showAlarmSettingsDialog) {
+        SessionAlarmSettingsDialog(
+            onDismiss = { showAlarmSettingsDialog = false },
+            onSettingsChanged = {
+                viewModel.rescheduleAllAlarms(context)
+            }
+        )
+    }
+
     if (showAddDialog) {
         AddEditSessionDialog(
             initialDay = initialDayForAdd,
@@ -701,7 +739,7 @@ fun ScheduleScreen(
                 initialDateForAdd = null
             },
             onSave = { sess, onConflict ->
-                viewModel.addOrUpdateSession(sess, onConflict) {
+                viewModel.addOrUpdateSession(context, sess, onConflict) {
                     showAddDialog = false
                     initialDayForAdd = null
                     initialDateForAdd = null
@@ -718,7 +756,7 @@ fun ScheduleScreen(
             onAddNewVenue = { venue, onSaved -> viewModel.addNewVenue(venue, onSaved) },
             onDismiss = { sessionToEdit = null },
             onSave = { updated, onConflict ->
-                viewModel.addOrUpdateSession(updated, onConflict) {
+                viewModel.addOrUpdateSession(context, updated, onConflict) {
                     sessionToEdit = null
                 }
             }
@@ -729,7 +767,7 @@ fun ScheduleScreen(
         ConfirmDeleteDialog(
             title = "حذف الحصة",
             message = "هل تريد حذف هذه الحصة من الجدول؟",
-            onConfirm = { viewModel.deleteSession(sess) },
+            onConfirm = { viewModel.deleteSession(context, sess) },
             onDismiss = { sessionToDelete = null }
         )
     }

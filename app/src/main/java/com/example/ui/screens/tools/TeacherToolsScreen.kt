@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -63,20 +64,22 @@ import java.util.Locale
 
 enum class TeacherToolsTab(
     val defaultTitle: String,
+    val subtitle: String,
+    val category: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val badgeColor: Color
 ) {
-    VOICE_STUDIO("تسجيل الصوت", Icons.Filled.Mic, Color(0xFFEF4444)),
-    HOMEWORK_SCANNER("تصوير الواجب", Icons.Filled.CameraAlt, Color(0xFF3B82F6)),
-    TRANSLATOR("مترجم المعلم", Icons.Filled.Translate, Color(0xFF2563EB)),
-    LUCKY_PICKER("القرعة الذكية", Icons.Filled.Casino, AmberGold),
-    CLASS_TIMER("مؤقت الحصة", Icons.Filled.Timer, TealAccent),
-    GRADE_CALC("حاسبة الدرجات", Icons.Filled.Calculate, Color(0xFF8B5CF6)),
-    BOOKLET_TRACKER("سجل المذكرات", Icons.Filled.MenuBook, EmeraldSuccess),
-    PORTFOLIO_CARDS("بورتفوليو المعلم", Icons.Filled.Badge, Color(0xFFD97706)),
-    CASIO_CALC("آلة كاسيو العلمية", Icons.Filled.Calculate, Color(0xFF0284C7)),
-    PRINT_HUB("مركز الطباعة", Icons.Filled.Print, NavyPrimary),
-    TEMPLATES("رسائل جاهزة", Icons.Filled.Send, Color(0xFFEC4899));
+    HOMEWORK_SCANNER("تصوير وتصحيح الواجب", "مسح واجبات الطلاب وتوثيقها بالكاميرا", "الحصة والتدريس", Icons.Filled.CameraAlt, Color(0xFF3B82F6)),
+    CASIO_CALC("آلة كاسيو العلمية 8-MODES", "حاسبة fx-991ES Plus العلمية بكافة المودات", "الرياضيات والحساب", Icons.Filled.Calculate, Color(0xFF0284C7)),
+    VOICE_STUDIO("تسجيل الملاحظات الصوتية", "استوديو لتسجيل وتوثيق شرح الحصة والملاحظات", "الحصة والتدريس", Icons.Filled.Mic, Color(0xFFEF4444)),
+    LUCKY_PICKER("القرعة الذكية للطلاب", "اختيار عشوائي للطلاب للإجابة والتفاعل", "الحصة والتدريس", Icons.Filled.Casino, AmberGold),
+    CLASS_TIMER("مؤقت الحصة التفاعلي", "ضبط أوقات الاختبارات والأنشطة والمهام", "الحصة والتدريس", Icons.Filled.Timer, TealAccent),
+    GRADE_CALC("حاسبة الدرجات والنسب", "حساب الدرجات المئوية والتقديرات وتوزيع الدرجات", "الرياضيات والحساب", Icons.Filled.Calculate, Color(0xFF8B5CF6)),
+    TRANSLATOR("مترجم المصطلحات التربوي", "قاموس ومترجم لمصطلحات الرياضيات والعلوم واللغات", "الرياضيات والحساب", Icons.Filled.Translate, Color(0xFF2563EB)),
+    BOOKLET_TRACKER("سجل تسليم المذكرات", "متابعة تسليم واستلام الشيتات والكتب والمصاريف", "الإدارة والطباعة", Icons.Filled.MenuBook, EmeraldSuccess),
+    PORTFOLIO_CARDS("بورتفوليو وبطاقة المعلم", "شيت كروت شخصية وباركود تعريفي فاخر للطباعة", "الإدارة والطباعة", Icons.Filled.Badge, Color(0xFFD97706)),
+    PRINT_HUB("مركز الطباعة السريع", "طباعة كارنيهات الطلاب، لوحة الشرف، وجداول الحصص", "الإدارة والطباعة", Icons.Filled.Print, NavyPrimary),
+    TEMPLATES("قوالب رسائل الواتساب", "رسائل تشجيع وترحيب ومتابعة جاهزة للمشاركة", "الإدارة والطباعة", Icons.Filled.Send, Color(0xFFEC4899));
 
     fun getTitle(): String = when (this) {
         VOICE_STUDIO -> com.example.util.L.voiceStudio()
@@ -98,7 +101,7 @@ enum class TeacherToolsTab(
 fun TeacherToolsScreen(
     viewModel: TeacherToolsViewModel,
     onNavigateBack: () -> Unit,
-    initialTab: TeacherToolsTab = TeacherToolsTab.HOMEWORK_SCANNER,
+    initialTab: TeacherToolsTab? = null,
     onNavigateToSchedule: () -> Unit = {},
     onNavigateToStudents: () -> Unit = {},
     onNavigateToSmartPrep: () -> Unit = {},
@@ -107,7 +110,18 @@ fun TeacherToolsScreen(
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedTab by remember(initialTab) { mutableStateOf(initialTab) }
+    
+    // UI Mode: Hub Directory vs Active Tool View (Starts with Hub grid by default)
+    var isHubView by remember(initialTab) { mutableStateOf(initialTab == null) }
+    var selectedTab by remember(initialTab) { mutableStateOf(initialTab ?: TeacherToolsTab.CASIO_CALC) }
+    var isSidebarOpen by remember { mutableStateOf(false) }
+    var hubSearchQuery by remember { mutableStateOf("") }
+    var selectedCategoryFilter by remember { mutableStateOf("الكل") }
+
+    // Intercept Back button: return to Hub directory if inside any specific tool
+    androidx.activity.compose.BackHandler(enabled = !isHubView) {
+        isHubView = true
+    }
 
     LaunchedEffect(state.statusMessage) {
         state.statusMessage?.let {
@@ -122,26 +136,67 @@ fun TeacherToolsScreen(
             TopAppBar(
                 title = {
                     Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isHubView) "قائمة أدوات المعلم 🎓" else selectedTab.getTitle(),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            if (!isHubView) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = selectedTab.badgeColor.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = selectedTab.category,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = selectedTab.badgeColor,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
                         Text(
-                            text = "أدوات المعلم الذكية 🎓",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = "تسجيل الصوت، تصوير الواجبات، القرعة، والمؤقت",
+                            text = if (isHubView) "اختر الأداة المطلوبة أو تنقل عبر القائمة الجانبية" else selectedTab.subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 },
                 navigationIcon = {
                     IconButton(
-                        onClick = onNavigateBack,
+                        onClick = {
+                            if (!isHubView) {
+                                isHubView = true
+                            } else {
+                                onNavigateBack()
+                            }
+                        },
                         modifier = Modifier.testTag("teacher_tools_back_btn")
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع")
+                        Icon(
+                            imageVector = if (!isHubView) Icons.Filled.GridView else Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = if (!isHubView) "كل الأدوات" else "رجوع"
+                        )
                     }
                 },
                 actions = {
+                    // Sidebar Toggle Button when in tool view
+                    if (!isHubView) {
+                        FilledTonalIconButton(
+                            onClick = { isSidebarOpen = !isSidebarOpen },
+                            modifier = Modifier.testTag("toggle_tools_sidebar_btn")
+                        ) {
+                            Icon(
+                                imageVector = if (isSidebarOpen) Icons.Filled.Close else Icons.Filled.Menu,
+                                contentDescription = "قائمة الأدوات الجانبية",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
                     FilledTonalButton(
                         onClick = onNavigateToAiChat,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
@@ -155,7 +210,7 @@ fun TeacherToolsScreen(
                     FilledTonalButton(
                         onClick = onNavigateToSmartPrep,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier.padding(end = 6.dp)
                     ) {
                         Icon(Icons.Filled.Psychology, contentDescription = null, modifier = Modifier.size(16.dp), tint = NavyPrimary)
                         Spacer(modifier = Modifier.width(3.dp))
@@ -166,73 +221,373 @@ fun TeacherToolsScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Horizontal Tool Tabs Bar
-            ScrollableTabRow(
-                selectedTabIndex = selectedTab.ordinal,
-                edgePadding = 12.dp,
-                containerColor = MaterialTheme.colorScheme.surface,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("teacher_tools_tab_row")
-            ) {
-                TeacherToolsTab.values().forEach { tab ->
-                    val isSelected = selectedTab == tab
-                    Tab(
-                        selected = isSelected,
-                        onClick = { selectedTab = tab },
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            if (isHubView) {
+                // ==========================================
+                // 1. TOOLS HUB DIRECTORY (قائمة استكشاف كافة الأدوات)
+                // ==========================================
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    // Search Bar
+                    OutlinedTextField(
+                        value = hubSearchQuery,
+                        onValueChange = { hubSearchQuery = it },
+                        placeholder = { Text("بحث في أدوات المعلم (كاسيو، مؤقت، تصوير، طباعة...)") },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (hubSearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { hubSearchQuery = "" }) {
+                                    Icon(Icons.Filled.Close, contentDescription = null)
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("tools_hub_search_bar")
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Category filter chips
+                    val categories = listOf("الكل", "الحصة والتدريس", "الرياضيات والحساب", "الإدارة والطباعة")
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(categories) { cat ->
+                            val isSel = selectedCategoryFilter == cat
+                            FilterChip(
+                                selected = isSel,
+                                onClick = { selectedCategoryFilter = cat },
+                                label = { Text(cat, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Filtered Tools Grid/List
+                    val filteredTools = TeacherToolsTab.values().filter { tab ->
+                        val matchesCat = selectedCategoryFilter == "الكل" || tab.category == selectedCategoryFilter
+                        val matchesSearch = hubSearchQuery.isBlank() ||
+                                tab.getTitle().contains(hubSearchQuery, ignoreCase = true) ||
+                                tab.subtitle.contains(hubSearchQuery, ignoreCase = true) ||
+                                tab.defaultTitle.contains(hubSearchQuery, ignoreCase = true)
+                        matchesCat && matchesSearch
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(filteredTools) { tab ->
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedTab = tab
+                                        isHubView = false
+                                    }
+                                    .testTag("tool_card_${tab.name}")
                             ) {
-                                Box(
+                                Row(
                                     modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isSelected) tab.badgeColor else tab.badgeColor.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(46.dp)
+                                                .clip(CircleShape)
+                                                .background(tab.badgeColor.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = tab.icon,
+                                                contentDescription = null,
+                                                tint = tab.badgeColor,
+                                                modifier = Modifier.size(26.dp)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(14.dp))
+
+                                        Column {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = tab.getTitle(),
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = tab.badgeColor.copy(alpha = 0.1f)
+                                                ) {
+                                                    Text(
+                                                        text = tab.category,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = tab.badgeColor,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = tab.subtitle,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
                                     Icon(
-                                        imageVector = tab.icon,
-                                        contentDescription = null,
-                                        tint = if (isSelected) Color.White else tab.badgeColor,
-                                        modifier = Modifier.size(14.dp)
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = "فتح الأداة",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
-                                Text(
-                                    text = tab.getTitle(),
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
                         }
-                    )
-                }
-            }
 
-            // Tab Content Body
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                when (selectedTab) {
-                    TeacherToolsTab.VOICE_STUDIO -> VoiceNotesStudioView(state, viewModel, context)
-                    TeacherToolsTab.HOMEWORK_SCANNER -> HomeworkScannerView(state, viewModel, context)
-                    TeacherToolsTab.TRANSLATOR -> SmartEducationalTranslatorView(state, viewModel, context)
-                    TeacherToolsTab.LUCKY_PICKER -> LuckyStudentPickerView(state, viewModel, context)
-                    TeacherToolsTab.CLASS_TIMER -> ClassroomTimerView(state, viewModel)
-                    TeacherToolsTab.GRADE_CALC -> QuickGradeCalculatorView(state, viewModel)
-                    TeacherToolsTab.BOOKLET_TRACKER -> BookletTrackerView(state, viewModel, context)
-                    TeacherToolsTab.PORTFOLIO_CARDS -> TeacherPortfolioAndCardsView(state, context)
-                    TeacherToolsTab.CASIO_CALC -> CasioCalculatorToolView()
-                    TeacherToolsTab.PRINT_HUB -> QuickPrintHubView(state, viewModel, context, onNavigateToSchedule)
-                    TeacherToolsTab.TEMPLATES -> MotivationTemplatesView(state, context)
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFF229ED9).copy(alpha = 0.12f)
+                                ),
+                                border = BorderStroke(1.dp, Color(0xFF229ED9).copy(alpha = 0.35f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/abdoaiman01"))
+                                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            // ignore
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF229ED9)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Filled.Send, contentDescription = "Telegram", tint = Color.White, modifier = Modifier.size(18.dp))
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                "تواصل مع صاحب التطبيق (تيليجرام)",
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                "https://t.me/abdoaiman01",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF0284C7)
+                                            )
+                                        }
+                                    }
+                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF229ED9))
+                                }
+                            }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(20.dp))
+                        }
+                    }
+                }
+            } else {
+                // ==========================================
+                // 2. ACTIVE TOOL WORKSPACE WITH SIDEBAR
+                // ==========================================
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Main Tool Workspace
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        when (selectedTab) {
+                            TeacherToolsTab.VOICE_STUDIO -> VoiceNotesStudioView(state, viewModel, context)
+                            TeacherToolsTab.HOMEWORK_SCANNER -> HomeworkScannerView(state, viewModel, context)
+                            TeacherToolsTab.TRANSLATOR -> SmartEducationalTranslatorView(state, viewModel, context)
+                            TeacherToolsTab.LUCKY_PICKER -> LuckyStudentPickerView(state, viewModel, context)
+                            TeacherToolsTab.CLASS_TIMER -> ClassroomTimerView(state, viewModel)
+                            TeacherToolsTab.GRADE_CALC -> QuickGradeCalculatorView(state, viewModel)
+                            TeacherToolsTab.BOOKLET_TRACKER -> BookletTrackerView(state, viewModel, context)
+                            TeacherToolsTab.PORTFOLIO_CARDS -> TeacherPortfolioAndCardsView(state, context)
+                            TeacherToolsTab.CASIO_CALC -> CasioCalculatorToolView()
+                            TeacherToolsTab.PRINT_HUB -> QuickPrintHubView(state, viewModel, context, onNavigateToSchedule)
+                            TeacherToolsTab.TEMPLATES -> MotivationTemplatesView(state, context)
+                        }
+                    }
+
+                    // SIDEBAR DRAWER (الشريط الجانبي للتنقل الفوري بين الأدوات)
+                    AnimatedVisibility(
+                        visible = isSidebarOpen,
+                        enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+                        exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .width(240.dp)
+                                .fillMaxHeight()
+                                .shadow(8.dp)
+                                .testTag("teacher_tools_sidebar"),
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 6.dp,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp)
+                            ) {
+                                // Sidebar Header
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "الأدوات الأخرى 🧰",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    IconButton(
+                                        onClick = { isSidebarOpen = false },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Filled.Close, contentDescription = "إغلاق الشريط الجانبي", modifier = Modifier.size(18.dp))
+                                    }
+                                }
+
+                                // All Tools Hub Link Button
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            isHubView = true
+                                            isSidebarOpen = false
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Filled.GridView, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "كل الأدوات (دليل الأدوات)",
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                // List of all Tools in Sidebar
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    items(TeacherToolsTab.values()) { tab ->
+                                        val isCurrent = selectedTab == tab
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = if (isCurrent) tab.badgeColor.copy(alpha = 0.18f) else Color.Transparent,
+                                            border = if (isCurrent) BorderStroke(1.dp, tab.badgeColor) else null,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    selectedTab = tab
+                                                    isSidebarOpen = false
+                                                }
+                                                .testTag("sidebar_tool_item_${tab.name}")
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(30.dp)
+                                                        .clip(CircleShape)
+                                                        .background(if (isCurrent) tab.badgeColor else tab.badgeColor.copy(alpha = 0.15f)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = tab.icon,
+                                                        contentDescription = null,
+                                                        tint = if (isCurrent) Color.White else tab.badgeColor,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.width(8.dp))
+
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = tab.getTitle(),
+                                                        style = MaterialTheme.typography.labelMedium.copy(
+                                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium
+                                                        ),
+                                                        color = if (isCurrent) tab.badgeColor else MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = tab.category,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        fontSize = 9.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -693,7 +1048,7 @@ private fun HomeworkScannerView(
         }
     }
 
-    val ratingOptions = listOf("ممتاز ⭐⭐⭐", "جيد جداً 👍", "جيد", "يحتاج إعادة ⚠️")
+    val ratingOptions = listOf("حل كامل وممتاز 🌟", "حل جزئي (ناقص) ⚠️", "لم يحل الواجب ❌", "معفى من الواجب ⚪")
 
     val activeStudents = state.students.filter {
         it.status == "active" && (state.hwGroupId == 0L || it.groupId == state.hwGroupId)
@@ -995,31 +1350,8 @@ private fun HomeworkScannerView(
                         }
                     }
 
-                    // Score & Rating
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = state.hwScore,
-                            onValueChange = { viewModel.setHwScore(it) },
-                            label = { Text("الدرجة") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = state.hwMaxScore,
-                            onValueChange = { viewModel.setHwMaxScore(it) },
-                            label = { Text("الدرجة العظمى") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // Rating Chips
-                    Text("التقييم العام:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    // Homework Status / Rating Chips (تقييم حالة الواجب بدون درجات رقمية)
+                    Text("حالة الواجب والتقييم:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(ratingOptions) { r ->
                             FilterChip(
@@ -1146,7 +1478,7 @@ private fun HomeworkScannerView(
                             Column {
                                 Text(student?.name ?: "طالب #${hw.studentId}", fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = "${hw.title} • ${hw.score}/${hw.maxScore} (${hw.rating})",
+                                    text = "${hw.title} • ${hw.rating}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -1173,7 +1505,7 @@ private fun HomeworkScannerView(
                                     onClick = {
                                         val parentPhone = student?.parentPhone?.ifEmpty { student.phone } ?: ""
                                         val teacherName = state.teacher.name.ifEmpty { "معلم المادة" }
-                                        val caption = "📄 *واجب الطالب: ${student?.name ?: ""}*\nالدرجة: ${hw.score}/${hw.maxScore} (${hw.rating})\nمعلم المادة: $teacherName"
+                                        val caption = "📄 *واجب الطالب: ${student?.name ?: ""}*\nالتقييم: ${hw.rating}\nمعلم المادة: $teacherName"
                                         if (isPdf) {
                                             PdfReportExporter.sharePdfToWhatsApp(context, targetFile, caption, parentPhone)
                                         } else {
@@ -2661,30 +2993,28 @@ private fun SmartEducationalTranslatorView(
 }
 
 // ==========================================
-// 11. CASIO FX SCIENTIFIC CALCULATOR VIEW
+// 11. CASIO FX SCIENTIFIC CALCULATOR VIEW (Full Screen)
 // ==========================================
 @Composable
 private fun CasioCalculatorToolView() {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E242B)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+    Surface(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 4.dp)
-            .testTag("teacher_tools_casio_calculator")
+            .testTag("teacher_tools_casio_calculator"),
+        color = Color(0xFF1B2228),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Header Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2692,9 +3022,9 @@ private fun CasioCalculatorToolView() {
                     Text(
                         text = "CASIO",
                         fontWeight = FontWeight.Black,
-                        fontSize = 18.sp,
-                        color = Color(0xFFE2E8F0),
-                        letterSpacing = 2.sp
+                        fontSize = 19.sp,
+                        color = Color(0xFFF1F5F9),
+                        letterSpacing = 2.5.sp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
@@ -2703,7 +3033,7 @@ private fun CasioCalculatorToolView() {
                     ) {
                         Text(
                             text = "fx-991ES PLUS",
-                            color = Color(0xFF94A3B8),
+                            color = Color(0xFFE2E8F0),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -2711,22 +3041,47 @@ private fun CasioCalculatorToolView() {
                     }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF1E3A8A).copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, Color(0xFF3B82F6))
-                ) {
-                    Text(
-                        text = "NATURAL-V.P.A.M.",
-                        color = Color(0xFF93C5FD),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Solar Panel Simulation (TWO WAY POWER)
+                    Surface(
+                        shape = RoundedCornerShape(3.dp),
+                        color = Color(0xFF2C1810),
+                        border = BorderStroke(1.dp, Color(0xFF4A3525)),
+                        modifier = Modifier.size(width = 44.dp, height = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(4) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .fillMaxHeight(0.7f)
+                                        .background(Color(0xFF6B4C35))
+                                )
+                            }
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFF1E3A8A).copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, Color(0xFF3B82F6))
+                    ) {
+                        Text(
+                            text = "NATURAL-V.P.A.M.",
+                            color = Color(0xFF93C5FD),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             CasioCalculatorContent()
         }

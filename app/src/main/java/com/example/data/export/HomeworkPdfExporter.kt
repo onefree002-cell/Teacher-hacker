@@ -163,10 +163,6 @@ object HomeworkPdfExporter {
         canvas.drawRoundRect(badgeRect, 8f, 8f, statusBadgePaint)
         canvas.drawText(statusText, badgeRect.centerX(), currentY - 4f, statusTextPaint)
 
-        if (score.isNotBlank()) {
-            canvas.drawText("الدرجة / التقييم: $score", 180f, currentY, labelPaint)
-        }
-
         if (topic.isNotBlank()) {
             currentY += 26f
             canvas.drawText("موضوع الواجب: $topic", rightX, currentY, valuePaint)

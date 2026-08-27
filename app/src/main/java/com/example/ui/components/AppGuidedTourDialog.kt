@@ -50,7 +50,7 @@ fun AppGuidedTourDialog(
     onDismiss: () -> Unit,
     onNavigateToScreen: ((String) -> Unit)? = null
 ) {
-    val isArabic = LocaleManager.isArabic()
+    val isArabic = L.isArabic()
     var currentStepIndex by remember { mutableIntStateOf(0) }
 
     val tourSteps = remember(isArabic) {
@@ -400,6 +400,31 @@ fun AppGuidedTourDialog(
                                     )
                                 }
                             }
+                        }
+                    }
+
+                    // Interactive Live Visit Page Shortcut
+                    if (currentStep.targetScreenRoute != null && onNavigateToScreen != null) {
+                        FilledTonalButton(
+                            onClick = {
+                                AppPreferencesManager.setHasSeenTour(true)
+                                onNavigateToScreen(currentStep.targetScreenRoute)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("tour_visit_page_btn"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = currentStep.color.copy(alpha = 0.15f),
+                                contentColor = currentStep.color
+                            )
+                        ) {
+                            Icon(Icons.Filled.Launch, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isArabic) "تجربة والانتقال لصفحة ${currentStep.title} الآن 🚀" else "Go & Test ${currentStep.title} Now 🚀",
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }

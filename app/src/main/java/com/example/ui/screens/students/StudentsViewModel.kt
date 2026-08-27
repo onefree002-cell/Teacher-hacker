@@ -22,6 +22,7 @@ data class StudentsUiState(
     val studentAttendance: List<AttendanceEntity> = emptyList(),
     val studentPayments: List<PaymentEntity> = emptyList(),
     val studentDeliveries: List<MaterialDeliveryEntity> = emptyList(),
+    val studentHomeworks: List<HomeworkSubmissionEntity> = emptyList(),
     val teacher: TeacherEntity? = null
 )
 
@@ -206,18 +207,51 @@ class StudentsViewModel(private val repository: TeacherPlannerRepository) : View
         }
     }
 
+    fun deleteHomework(homework: HomeworkSubmissionEntity) {
+        viewModelScope.launch {
+            repository.deleteHomework(homework)
+            _uiState.value.selectedStudentDetails?.student?.id?.let {
+                loadStudentDetails(it)
+            }
+        }
+    }
+
+    fun updateHomework(homework: HomeworkSubmissionEntity) {
+        viewModelScope.launch {
+            repository.updateHomework(homework)
+            _uiState.value.selectedStudentDetails?.student?.id?.let {
+                loadStudentDetails(it)
+            }
+        }
+    }
+
+    fun saveHomework(homework: HomeworkSubmissionEntity) {
+        viewModelScope.launch {
+            if (homework.id == 0L) {
+                repository.insertHomework(homework)
+            } else {
+                repository.updateHomework(homework)
+            }
+            _uiState.value.selectedStudentDetails?.student?.id?.let {
+                loadStudentDetails(it)
+            }
+        }
+    }
+
     fun loadStudentDetails(studentId: Long) {
         viewModelScope.launch {
             val details = repository.getStudentDetails(studentId)
             val attList = repository.getAttendanceByStudent(studentId).first()
             val payList = repository.getPaymentsByStudent(studentId).first()
             val delList = repository.getDeliveriesByStudent(studentId).first()
+            val hwList = repository.getHomeworkByStudent(studentId).first()
 
             _uiState.value = _uiState.value.copy(
                 selectedStudentDetails = details,
                 studentAttendance = attList,
                 studentPayments = payList,
-                studentDeliveries = delList
+                studentDeliveries = delList,
+                studentHomeworks = hwList
             )
         }
     }

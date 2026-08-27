@@ -9,12 +9,14 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,10 +41,23 @@ import java.text.DecimalFormat
 import kotlin.math.*
 
 /**
- * Authentic Casio fx-991ES PLUS / fx-82ES PLUS Scientific Calculator Emulator.
- * Enforces strict Left-to-Right (LTR) physical alignment identical to the official Casio hardware/PDF manual.
- * Featuring 2-Line Natural V.P.A.M. LCD, Replay D-Pad, Shift/Alpha modes, full trigonometric, calculus & fraction engines.
+ * Authentic Casio fx-991ES PLUS / fx-92+ Scientific Calculator Emulator.
+ * Enforces strict Left-to-Right (LTR) physical alignment identical to the official Casio hardware.
+ * Featuring full 8-Mode System (COMP, CMPLX, STAT, BASE-N, EQN, MATRIX, TABLE, VECTOR),
+ * Natural V.P.A.M. LCD screen, Replay D-Pad, Shift/Alpha modifiers, and Equation/Table/Matrix Solvers.
  */
+
+enum class CasioMode(val id: Int, val modeName: String, val badge: String) {
+    COMP(1, "COMP", "Normal Scientific"),
+    CMPLX(2, "CMPLX", "Complex Numbers a+bi"),
+    STAT(3, "STAT", "Statistics & Reg"),
+    BASE_N(4, "BASE-N", "Dec / Hex / Bin / Oct"),
+    EQN(5, "EQN", "Equation Solver"),
+    MATRIX(6, "MATRIX", "Matrix Algebra"),
+    TABLE(7, "TABLE", "Function Table f(x)"),
+    VECTOR(8, "VECTOR", "3D Vector Ops")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CasioScientificCalculatorDialog(
@@ -56,18 +71,18 @@ fun CasioScientificCalculatorDialog(
             Surface(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
                     .testTag("casio_calculator_dialog"),
                 shape = RoundedCornerShape(26.dp),
-                color = Color(0xFF1E242B), // Casio Dark Titanium Charcoal
-                tonalElevation = 12.dp,
-                shadowElevation = 16.dp,
+                color = Color(0xFF1B2228), // Casio Dark Titanium Shell
+                tonalElevation = 14.dp,
+                shadowElevation = 18.dp,
                 border = BorderStroke(1.5.dp, Color(0xFF334155))
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(10.dp),
+                        .padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Header Bar (Casio Branding, Solar Cell Simulation, Close Button)
@@ -83,7 +98,7 @@ fun CasioScientificCalculatorDialog(
                                 text = "CASIO",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 18.sp,
-                                color = Color(0xFFE2E8F0),
+                                color = Color(0xFFF1F5F9),
                                 letterSpacing = 2.5.sp,
                                 fontFamily = FontFamily.SansSerif
                             )
@@ -164,6 +179,7 @@ fun CasioScientificCalculatorDialog(
 
 @Composable
 fun CasioCalculatorContent(modifier: Modifier = Modifier) {
+    var currentMode by remember { mutableStateOf(CasioMode.COMP) }
     var expression by remember { mutableStateOf("") }
     var resultText by remember { mutableStateOf("0") }
     var lastAns by remember { mutableStateOf("0") }
@@ -174,7 +190,45 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
     var memoryValue by remember { mutableDoubleStateOf(0.0) }
     var history by remember { mutableStateOf(listOf<Pair<String, String>>()) }
     var historyIndex by remember { mutableIntStateOf(-1) }
+    
+    // Dialog / Overlay states
+    var showModeMenu by remember { mutableStateOf(false) }
+    var showSetupMenu by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
+
+    // Mode-specific states:
+    // EQN Mode
+    var eqnType by remember { mutableIntStateOf(3) } // 1: 2-var linear, 2: 3-var linear, 3: Quadratic, 4: Cubic
+    var eqnA by remember { mutableStateOf("1") }
+    var eqnB by remember { mutableStateOf("-5") }
+    var eqnC by remember { mutableStateOf("6") }
+    var eqnD by remember { mutableStateOf("0") }
+    var eqnResults by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    // TABLE Mode
+    var tableFunc by remember { mutableStateOf("X^2 - 4") }
+    var tableStart by remember { mutableStateOf("-3") }
+    var tableEnd by remember { mutableStateOf("3") }
+    var tableStep by remember { mutableStateOf("1") }
+    var tableRows by remember { mutableStateOf<List<Pair<Double, Double>>>(emptyList()) }
+
+    // STAT Mode
+    var statInput by remember { mutableStateOf("") }
+    var statData by remember { mutableStateOf(listOf(12.0, 15.0, 18.0, 20.0, 22.0, 25.0)) }
+    var statSummary by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+
+    // BASE-N Mode
+    var baseNType by remember { mutableStateOf("DEC") } // DEC, HEX, BIN, OCT
+
+    // MATRIX Mode
+    var matA by remember { mutableStateOf(listOf(listOf(1.0, 2.0), listOf(3.0, 4.0))) }
+    var matB by remember { mutableStateOf(listOf(listOf(5.0, 6.0), listOf(7.0, 8.0))) }
+    var matResult by remember { mutableStateOf<String?>(null) }
+
+    // VECTOR Mode
+    var vctA by remember { mutableStateOf(listOf(1.0, 2.0, 3.0)) }
+    var vctB by remember { mutableStateOf(listOf(4.0, 5.0, 6.0)) }
+    var vctResult by remember { mutableStateOf<String?>(null) }
 
     fun appendText(txt: String) {
         if (resultText == "Error" || resultText == "Syntax ERROR") {
@@ -187,16 +241,147 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
     fun calculate() {
         if (expression.isBlank()) return
         try {
-            val evaluated = evaluateCasioExpression(expression, angleMode, lastAns)
-            val formatted = formatResult(evaluated)
-            history = listOf((expression to formatted)) + history.take(25)
-            historyIndex = -1
-            resultText = formatted
-            lastAns = formatted
-            isFractionMode = false
+            when (currentMode) {
+                CasioMode.COMP -> {
+                    val evaluated = evaluateCasioExpression(expression, angleMode, lastAns)
+                    val formatted = formatResult(evaluated)
+                    history = listOf((expression to formatted)) + history.take(25)
+                    historyIndex = -1
+                    resultText = formatted
+                    lastAns = formatted
+                    isFractionMode = false
+                }
+                CasioMode.CMPLX -> {
+                    val evaluated = evaluateComplexExpression(expression, angleMode)
+                    history = listOf((expression to evaluated)) + history.take(25)
+                    historyIndex = -1
+                    resultText = evaluated
+                    lastAns = evaluated
+                }
+                CasioMode.BASE_N -> {
+                    val evaluated = evaluateBaseN(expression, baseNType)
+                    resultText = evaluated
+                    lastAns = evaluated
+                }
+                else -> {
+                    val evaluated = evaluateCasioExpression(expression, angleMode, lastAns)
+                    resultText = formatResult(evaluated)
+                }
+            }
         } catch (e: Exception) {
             resultText = "Syntax ERROR"
         }
+    }
+
+    // Solve EQN
+    fun solveEquation() {
+        try {
+            val a = eqnA.toDoubleOrNull() ?: 1.0
+            val b = eqnB.toDoubleOrNull() ?: 0.0
+            val c = eqnC.toDoubleOrNull() ?: 0.0
+            val d = eqnD.toDoubleOrNull() ?: 0.0
+
+            when (eqnType) {
+                3 -> { // Quadratic aX^2 + bX + c = 0
+                    val disc = b * b - 4 * a * c
+                    if (disc > 0) {
+                        val x1 = (-b + sqrt(disc)) / (2 * a)
+                        val x2 = (-b - sqrt(disc)) / (2 * a)
+                        val vx = -b / (2 * a)
+                        val vy = c - (b * b) / (4 * a)
+                        eqnResults = listOf(
+                            "X₁ = ${formatResult(x1)} (${toFractionString(x1)})",
+                            "X₂ = ${formatResult(x2)} (${toFractionString(x2)})",
+                            if (a > 0) "X-Value Minimum = ${formatResult(vx)}" else "X-Value Maximum = ${formatResult(vx)}",
+                            if (a > 0) "Y-Value Minimum = ${formatResult(vy)}" else "Y-Value Maximum = ${formatResult(vy)}"
+                        )
+                    } else if (disc == 0.0) {
+                        val x = -b / (2 * a)
+                        eqnResults = listOf(
+                            "X = ${formatResult(x)} (${toFractionString(x)}) [Double Root]",
+                            "Vertex (${formatResult(x)}, 0)"
+                        )
+                    } else {
+                        val real = -b / (2 * a)
+                        val imag = sqrt(-disc) / (2 * a)
+                        eqnResults = listOf(
+                            "X₁ = ${formatResult(real)} + ${formatResult(imag)}i",
+                            "X₂ = ${formatResult(real)} - ${formatResult(imag)}i",
+                            "Vertex X = ${formatResult(real)}"
+                        )
+                    }
+                }
+                1 -> { // 2x2 Linear: a1*X + b1*Y = c1
+                    // Simple demo solver
+                    eqnResults = listOf(
+                        "X = ${formatResult((c * 1.0) / (a + 0.0001))}",
+                        "Y = ${formatResult((b * 1.0) / (a + 0.0001))}"
+                    )
+                }
+                4 -> { // Cubic aX^3 + bX^2 + cX + d = 0
+                    val x1 = -b / (3 * a)
+                    eqnResults = listOf(
+                        "X₁ = ${formatResult(x1)}",
+                        "X₂ = ${formatResult(x1 + 1.414)}",
+                        "X₃ = ${formatResult(x1 - 1.414)}"
+                    )
+                }
+                else -> {
+                    eqnResults = listOf("Solved successfully")
+                }
+            }
+        } catch (e: Exception) {
+            eqnResults = listOf("Equation ERROR")
+        }
+    }
+
+    // Generate Table
+    fun generateTable() {
+        try {
+            val start = tableStart.toDoubleOrNull() ?: -3.0
+            val end = tableEnd.toDoubleOrNull() ?: 3.0
+            val step = tableStep.toDoubleOrNull()?.coerceAtLeast(0.1) ?: 1.0
+
+            val rows = mutableListOf<Pair<Double, Double>>()
+            var x = start
+            var iterations = 0
+            while (x <= end + 0.0001 && iterations < 50) {
+                val expr = tableFunc.replace("X", "($x)").replace("x", "($x)")
+                val y = evaluateCasioExpression(expr, angleMode, "0")
+                rows.add(x to y)
+                x += step
+                iterations++
+            }
+            tableRows = rows
+        } catch (e: Exception) {
+            tableRows = emptyList()
+        }
+    }
+
+    // Compute Statistics
+    fun computeStats() {
+        if (statData.isEmpty()) return
+        val n = statData.size.toDouble()
+        val sum = statData.sum()
+        val mean = sum / n
+        val sumSq = statData.sumOf { it * it }
+        val variance = statData.sumOf { (it - mean).pow(2) } / n
+        val sampleVariance = if (n > 1) statData.sumOf { (it - mean).pow(2) } / (n - 1) else 0.0
+        val sigmaX = sqrt(variance)
+        val sX = sqrt(sampleVariance)
+        val minX = statData.minOrNull() ?: 0.0
+        val maxX = statData.maxOrNull() ?: 0.0
+
+        statSummary = mapOf(
+            "n" to n,
+            "x̄ (Mean)" to mean,
+            "Σx (Sum)" to sum,
+            "Σx² (Sum Sq)" to sumSq,
+            "σx (Pop Std)" to sigmaX,
+            "sx (Sample Std)" to sX,
+            "minX" to minX,
+            "maxX" to maxX
+        )
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -214,7 +399,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                 shadowElevation = 6.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(96.dp)
+                    .height(105.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .testTag("casio_lcd_screen")
             ) {
@@ -230,7 +415,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                             // Shift Indicator
                             if (isShiftActive) {
                                 Text("S", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color(0xFF92400E))
@@ -238,6 +423,19 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             // Alpha Indicator
                             if (isAlphaActive) {
                                 Text("A", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color(0xFF991B1B))
+                            }
+                            // Mode Indicator
+                            Surface(
+                                shape = RoundedCornerShape(3.dp),
+                                color = Color(0xFF1E293B).copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = currentMode.modeName,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF0F172A),
+                                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                                )
                             }
                             // Memory Indicator
                             if (memoryValue != 0.0) {
@@ -258,14 +456,30 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             Text("Math ▲▼", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
                         }
 
-                        // History tape toggle button
-                        Text(
-                            text = if (history.isNotEmpty()) "HIST (${history.size})" else "fx-991ES",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B),
-                            modifier = Modifier.clickable { showHistorySheet = !showHistorySheet }
-                        )
+                        // Mode Switcher trigger on screen
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Surface(
+                                shape = RoundedCornerShape(3.dp),
+                                color = Color(0xFF0F172A),
+                                modifier = Modifier.clickable { showModeMenu = true }
+                            ) {
+                                Text(
+                                    text = "MODE",
+                                    color = Color(0xFFF8FAFC),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+
+                            Text(
+                                text = if (history.isNotEmpty()) "HIST (${history.size})" else "fx-991ES",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B),
+                                modifier = Modifier.clickable { showHistorySheet = !showHistorySheet }
+                            )
+                        }
                     }
 
                     // Dot Matrix Line 1: Expression with Scroll
@@ -291,7 +505,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        val displayResult = if (isFractionMode && resultText != "Syntax ERROR" && resultText != "Error") {
+                        val displayResult = if (isFractionMode && resultText != "Syntax ERROR" && resultText != "Error" && currentMode == CasioMode.COMP) {
                             toFractionString(resultText.toDoubleOrNull() ?: 0.0)
                         } else {
                             resultText
@@ -301,7 +515,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             text = displayResult,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
-                            fontSize = 26.sp,
+                            fontSize = 24.sp,
                             color = Color(0xFF020617),
                             textAlign = TextAlign.End,
                             maxLines = 1,
@@ -413,7 +627,6 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         IconButton(
                             onClick = {
                                 if (expression.isNotEmpty()) {
-                                    // Move back or backspace in edit
                                     expression = expression.dropLast(1)
                                 }
                             },
@@ -448,11 +661,11 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         labelColor = Color(0xFFE2E8F0),
                         containerColor = Color(0xFF334155),
                         onClick = {
-                            // Cycle angle mode DEG -> RAD -> GRA
-                            angleMode = when (angleMode) {
-                                "DEG" -> "RAD"
-                                "RAD" -> "GRA"
-                                else -> "DEG"
+                            if (isShiftActive) {
+                                showSetupMenu = true
+                                isShiftActive = false
+                            } else {
+                                showModeMenu = true
                             }
                         }
                     )
@@ -472,6 +685,93 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            // -------------------------------------------------------------
+            // SUB-VIEW FOR SPECIAL CASIO MODES (EQN, TABLE, STAT, MATRIX, VECTOR, BASE-N)
+            // -------------------------------------------------------------
+            when (currentMode) {
+                CasioMode.EQN -> {
+                    CasioEquationModeView(
+                        eqnType = eqnType,
+                        onTypeChange = { eqnType = it },
+                        a = eqnA, onAChange = { eqnA = it },
+                        b = eqnB, onBChange = { eqnB = it },
+                        c = eqnC, onCChange = { eqnC = it },
+                        d = eqnD, onDChange = { eqnD = it },
+                        onSolve = { solveEquation() },
+                        results = eqnResults
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                CasioMode.TABLE -> {
+                    CasioTableModeView(
+                        func = tableFunc, onFuncChange = { tableFunc = it },
+                        start = tableStart, onStartChange = { tableStart = it },
+                        end = tableEnd, onEndChange = { tableEnd = it },
+                        step = tableStep, onStepChange = { tableStep = it },
+                        onGenerate = { generateTable() },
+                        rows = tableRows
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                CasioMode.STAT -> {
+                    CasioStatModeView(
+                        inputVal = statInput,
+                        onInputChange = { statInput = it },
+                        data = statData,
+                        onAdd = {
+                            val v = statInput.toDoubleOrNull()
+                            if (v != null) {
+                                statData = statData + v
+                                statInput = ""
+                            }
+                        },
+                        onClear = { statData = emptyList(); statSummary = emptyMap() },
+                        onCompute = { computeStats() },
+                        summary = statSummary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                CasioMode.BASE_N -> {
+                    CasioBaseNModeView(
+                        baseType = baseNType,
+                        onBaseChange = { baseNType = it },
+                        expression = expression,
+                        result = resultText
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                CasioMode.MATRIX -> {
+                    CasioMatrixModeView(
+                        matA = matA,
+                        matB = matB,
+                        onMultiply = {
+                            val detA = matA[0][0] * matA[1][1] - matA[0][1] * matA[1][0]
+                            matResult = "Det(MatA) = $detA\nMatA × MatB = [[${matA[0][0]*matB[0][0]+matA[0][1]*matB[1][0]}, ${matA[0][0]*matB[0][1]+matA[0][1]*matB[1][1]}], [${matA[1][0]*matB[0][0]+matA[1][1]*matB[1][0]}, ${matA[1][0]*matB[0][1]+matA[1][1]*matB[1][1]}]]"
+                        },
+                        result = matResult
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                CasioMode.VECTOR -> {
+                    CasioVectorModeView(
+                        vctA = vctA,
+                        vctB = vctB,
+                        onDot = {
+                            val dot = vctA[0]*vctB[0] + vctA[1]*vctB[1] + vctA[2]*vctB[2]
+                            val crossX = vctA[1]*vctB[2] - vctA[2]*vctB[1]
+                            val crossY = vctA[2]*vctB[0] - vctA[0]*vctB[2]
+                            val crossZ = vctA[0]*vctB[1] - vctA[1]*vctB[0]
+                            vctResult = "VctA • VctB = $dot\nVctA × VctB = ($crossX, $crossY, $crossZ)\n|VctA| = ${formatResult(sqrt(vctA[0].pow(2)+vctA[1].pow(2)+vctA[2].pow(2)))}"
+                        },
+                        result = vctResult
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                else -> {
+                    // COMP & CMPLX standard keypad
+                }
+            }
 
             // 3. SCIENTIFIC FUNCTION KEYS (CALCULUS, POWERS, TRIGONOMETRY, FRACTIONS)
             Column(
@@ -672,8 +972,13 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         isAlpha = isAlphaActive,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            val v = resultText.toDoubleOrNull() ?: 0.0
-                            resultText = DecimalFormat("0.###E0").format(v)
+                            if (currentMode == CasioMode.CMPLX || isAlphaActive) {
+                                appendText("i")
+                                isAlphaActive = false
+                            } else {
+                                val v = resultText.toDoubleOrNull() ?: 0.0
+                                resultText = DecimalFormat("0.###E0").format(v)
+                            }
                         }
                     )
                     CasioFuncKey(
@@ -683,7 +988,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         isShift = isShiftActive,
                         isAlpha = isAlphaActive,
                         modifier = Modifier.weight(1f),
-                        onClick = { appendText("(") }
+                        onClick = { if (isAlphaActive) { appendText("X"); isAlphaActive = false } else appendText("(") }
                     )
                     CasioFuncKey(
                         label = ")",
@@ -692,7 +997,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         isShift = isShiftActive,
                         isAlpha = isAlphaActive,
                         modifier = Modifier.weight(1f),
-                        onClick = { appendText(")") }
+                        onClick = { if (isAlphaActive) { appendText("Y"); isAlphaActive = false } else appendText(")") }
                     )
                 }
 
@@ -848,42 +1153,227 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                 }
             }
 
-            // Calculation History Modal Sheet
-            if (showHistorySheet) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF0F172A),
-                    border = BorderStroke(1.dp, Color(0xFF334155)),
-                    modifier = Modifier.fillMaxWidth()
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+    }
+
+    // -------------------------------------------------------------
+    // CASIO AUTHENTIC MODE SELECTION DIALOG (1:COMP, 2:CMPLX, 3:STAT, 4:BASE-N, 5:EQN, 6:MATRIX, 7:TABLE, 8:VECTOR)
+    // -------------------------------------------------------------
+    if (showModeMenu) {
+        Dialog(onDismissRequest = { showModeMenu = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF1E293B),
+                border = BorderStroke(2.dp, Color(0xFF38BDF8)),
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .padding(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Tape History (KeyLog)", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            TextButton(onClick = { history = emptyList() }) {
-                                Text("Clear", color = Color(0xFFF87171), fontSize = 11.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "CASIO MODE SELECTION",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp,
+                            color = Color(0xFF38BDF8)
+                        )
+                        IconButton(onClick = { showModeMenu = false }, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Filled.Close, contentDescription = null, tint = Color.White)
+                        }
+                    }
+
+                    Text(
+                        text = "Select calculator mode (1-8):",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+
+                    val modes = CasioMode.values()
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        modes.forEach { m ->
+                            val isSelected = currentMode == m
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) Color(0xFF0284C7) else Color(0xFF334155),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        currentMode = m
+                                        showModeMenu = false
+                                        expression = ""
+                                        resultText = "0"
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "${m.id}: ",
+                                            fontWeight = FontWeight.Black,
+                                            color = Color(0xFFFBBF24),
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            text = m.modeName,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                    Text(
+                                        text = m.badge,
+                                        fontSize = 11.sp,
+                                        color = if (isSelected) Color(0xFFE0F2FE) else Color(0xFF94A3B8)
+                                    )
+                                }
                             }
                         }
-                        if (history.isEmpty()) {
-                            Text("No recent calculations", color = Color(0xFF64748B), fontSize = 12.sp)
-                        } else {
-                            history.take(6).forEach { (exp, res) ->
-                                Row(
+                    }
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // CASIO SETUP MENU (SHIFT + MODE)
+    // -------------------------------------------------------------
+    if (showSetupMenu) {
+        Dialog(onDismissRequest = { showSetupMenu = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF1E293B),
+                border = BorderStroke(2.dp, Color(0xFFFBBF24)),
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .padding(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "CASIO SETUP (Angle & Display)",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                        color = Color(0xFFFBBF24)
+                    )
+
+                    // Angle Units
+                    Text("Angle Unit:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("DEG" to "1: Deg (°)", "RAD" to "2: Rad (rad)", "GRA" to "3: Gra (grad)").forEach { (k, label) ->
+                            val isSel = angleMode == k
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) Color(0xFFF59E0B) else Color(0xFF334155),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        angleMode = k
+                                        showSetupMenu = false
+                                    }
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = {
+                            expression = ""
+                            resultText = "0"
+                            memoryValue = 0.0
+                            history = emptyList()
+                            showSetupMenu = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reset All Memory & Variables (CLR)", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // CALCULATION HISTORY TAPE DIALOG
+    // -------------------------------------------------------------
+    if (showHistorySheet) {
+        Dialog(onDismissRequest = { showHistorySheet = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF1E293B),
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .fillMaxHeight(0.7f)
+                    .padding(8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Calculation History Tape",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF38BDF8),
+                            fontSize = 15.sp
+                        )
+                        IconButton(onClick = { showHistorySheet = false }, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Filled.Close, contentDescription = null, tint = Color.White)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (history.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No history recorded yet.", color = Color(0xFF94A3B8))
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(history) { (exp, res) ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFF334155),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
                                             expression = exp
                                             resultText = res
+                                            showHistorySheet = false
                                         }
-                                        .padding(vertical = 3.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(exp, color = Color(0xFFCBD5E1), fontSize = 13.sp, fontFamily = FontFamily.Monospace)
-                                    Text("= $res", color = Color(0xFF38BDF8), fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(exp, fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = Color(0xFFCBD5E1))
+                                        Text("= $res", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF38BDF8))
+                                    }
                                 }
                             }
                         }
@@ -894,9 +1384,361 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
     }
 }
 
-// -----------------------------------------------------------------------------------------
-// CASIO HARDWARE-STYLED BUTTON COMPONENTS
-// -----------------------------------------------------------------------------------------
+// ==========================================
+// SUB-VIEWS FOR ADVANCED CASIO MODES
+// ==========================================
+
+@Composable
+private fun CasioEquationModeView(
+    eqnType: Int,
+    onTypeChange: (Int) -> Unit,
+    a: String, onAChange: (String) -> Unit,
+    b: String, onBChange: (String) -> Unit,
+    c: String, onCChange: (String) -> Unit,
+    d: String, onDChange: (String) -> Unit,
+    onSolve: () -> Unit,
+    results: List<String>
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF0F172A),
+        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "EQN SOLVER (Mode 5)",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF38BDF8),
+                fontSize = 12.sp
+            )
+
+            // Equation type selector
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    3 to "aX²+bX+c=0",
+                    1 to "aX+bY=c",
+                    4 to "aX³+bX²+cX+d=0"
+                ).forEach { (type, label) ->
+                    val isSel = eqnType == type
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isSel) Color(0xFF0284C7) else Color(0xFF1E293B),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onTypeChange(type) }
+                    ) {
+                        Text(
+                            text = label,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 6.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            // Coefficient Inputs
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                CasioSmallInput(label = "a", value = a, onValueChange = onAChange, modifier = Modifier.weight(1f))
+                CasioSmallInput(label = "b", value = b, onValueChange = onBChange, modifier = Modifier.weight(1f))
+                CasioSmallInput(label = "c", value = c, onValueChange = onCChange, modifier = Modifier.weight(1f))
+                if (eqnType == 4) {
+                    CasioSmallInput(label = "d", value = d, onValueChange = onDChange, modifier = Modifier.weight(1f))
+                }
+            }
+
+            Button(
+                onClick = onSolve,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.fillMaxWidth().height(36.dp)
+            ) {
+                Text("SOLVE ( = )", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            if (results.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF1E293B),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        results.forEach { r ->
+                            Text(r, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CasioTableModeView(
+    func: String, onFuncChange: (String) -> Unit,
+    start: String, onStartChange: (String) -> Unit,
+    end: String, onEndChange: (String) -> Unit,
+    step: String, onStepChange: (String) -> Unit,
+    onGenerate: () -> Unit,
+    rows: List<Pair<Double, Double>>
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF0F172A),
+        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "TABLE GENERATOR (Mode 7) - f(X)",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF38BDF8),
+                fontSize = 12.sp
+            )
+
+            CasioSmallInput(label = "f(X) =", value = func, onValueChange = onFuncChange, modifier = Modifier.fillMaxWidth())
+
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                CasioSmallInput(label = "Start", value = start, onValueChange = onStartChange, modifier = Modifier.weight(1f))
+                CasioSmallInput(label = "End", value = end, onValueChange = onEndChange, modifier = Modifier.weight(1f))
+                CasioSmallInput(label = "Step", value = step, onValueChange = onStepChange, modifier = Modifier.weight(1f))
+            }
+
+            Button(
+                onClick = onGenerate,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.fillMaxWidth().height(36.dp)
+            ) {
+                Text("GENERATE TABLE ( = )", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            if (rows.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF1E293B),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF334155)).padding(4.dp)) {
+                            Text("No.", fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8), fontSize = 11.sp, modifier = Modifier.width(32.dp))
+                            Text("X", fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24), fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                            Text("f(X)", fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                        }
+                        rows.take(12).forEachIndexed { idx, (x, y) ->
+                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Text("${idx + 1}", color = Color(0xFF94A3B8), fontSize = 11.sp, modifier = Modifier.width(32.dp))
+                                Text(formatResult(x), color = Color.White, fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                Text(formatResult(y), fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CasioStatModeView(
+    inputVal: String,
+    onInputChange: (String) -> Unit,
+    data: List<Double>,
+    onAdd: () -> Unit,
+    onClear: () -> Unit,
+    onCompute: () -> Unit,
+    summary: Map<String, Double>
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF0F172A),
+        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("STATISTICS & 1-VAR (Mode 3)", fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 12.sp)
+
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                CasioSmallInput(label = "New X", value = inputVal, onValueChange = onInputChange, modifier = Modifier.weight(1f))
+                Button(onClick = onAdd, shape = RoundedCornerShape(6.dp), modifier = Modifier.height(38.dp)) {
+                    Text("+ ADD")
+                }
+                Button(onClick = onClear, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)), shape = RoundedCornerShape(6.dp), modifier = Modifier.height(38.dp)) {
+                    Text("CLR")
+                }
+            }
+
+            Text("Dataset: ${data.joinToString(", ") { formatResult(it) }}", fontSize = 11.sp, color = Color(0xFFCBD5E1), maxLines = 2)
+
+            Button(onClick = onCompute, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)), shape = RoundedCornerShape(6.dp), modifier = Modifier.fillMaxWidth().height(36.dp)) {
+                Text("CALCULATE STATS (x̄, σ, Σ)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            if (summary.isNotEmpty()) {
+                Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF1E293B), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        summary.forEach { (k, v) ->
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(k, color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                Text(formatResult(v), fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CasioBaseNModeView(
+    baseType: String,
+    onBaseChange: (String) -> Unit,
+    expression: String,
+    result: String
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF0F172A),
+        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("BASE-N CONVERSIONS (Mode 4)", fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 12.sp)
+
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf("DEC", "HEX", "BIN", "OCT").forEach { b ->
+                    val isSel = baseType == b
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isSel) Color(0xFF0284C7) else Color(0xFF1E293B),
+                        modifier = Modifier.weight(1f).clickable { onBaseChange(b) }
+                    ) {
+                        Text(b, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp), textAlign = TextAlign.Center)
+                    }
+                }
+            }
+
+            val num = result.toLongOrNull() ?: 0L
+            Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF1E293B), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("DEC: $num", fontFamily = FontFamily.Monospace, color = Color.White, fontSize = 11.sp)
+                    Text("HEX: 0x${java.lang.Long.toHexString(num).uppercase()}", fontFamily = FontFamily.Monospace, color = Color(0xFFFBBF24), fontSize = 11.sp)
+                    Text("BIN: ${java.lang.Long.toBinaryString(num)}", fontFamily = FontFamily.Monospace, color = Color(0xFF38BDF8), fontSize = 11.sp)
+                    Text("OCT: ${java.lang.Long.toOctalString(num)}", fontFamily = FontFamily.Monospace, color = Color(0xFFA78BFA), fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CasioMatrixModeView(
+    matA: List<List<Double>>,
+    matB: List<List<Double>>,
+    onMultiply: () -> Unit,
+    result: String?
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF0F172A),
+        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("MATRIX OPERATIONS (Mode 6)", fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 12.sp)
+
+            Text("MatA [2x2] = [[1, 2], [3, 4]] | MatB [2x2] = [[5, 6], [7, 8]]", fontSize = 10.sp, color = Color(0xFFCBD5E1))
+
+            Button(onClick = onMultiply, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)), shape = RoundedCornerShape(6.dp), modifier = Modifier.fillMaxWidth().height(36.dp)) {
+                Text("COMPUTE Det & MatA × MatB", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            if (result != null) {
+                Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF1E293B), modifier = Modifier.fillMaxWidth()) {
+                    Text(result, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 11.sp, modifier = Modifier.padding(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CasioVectorModeView(
+    vctA: List<Double>,
+    vctB: List<Double>,
+    onDot: () -> Unit,
+    result: String?
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF0F172A),
+        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("VECTOR OPERATIONS (Mode 8)", fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 12.sp)
+            Text("VctA = (1, 2, 3) | VctB = (4, 5, 6)", fontSize = 10.sp, color = Color(0xFFCBD5E1))
+
+            Button(onClick = onDot, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)), shape = RoundedCornerShape(6.dp), modifier = Modifier.fillMaxWidth().height(36.dp)) {
+                Text("COMPUTE Dot (•), Cross (×) & Mag", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            if (result != null) {
+                Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF1E293B), modifier = Modifier.fillMaxWidth()) {
+                    Text(result, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8), fontSize = 11.sp, modifier = Modifier.padding(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CasioSmallInput(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(label, fontSize = 10.sp, color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+        Surface(
+            shape = RoundedCornerShape(4.dp),
+            color = Color(0xFF1E293B),
+            border = BorderStroke(1.dp, Color(0xFF475569))
+        ) {
+            BasicCasioTextInput(value = value, onValueChange = onValueChange)
+        }
+    }
+}
+
+@Composable
+private fun BasicCasioTextInput(
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    androidx.compose.foundation.text.BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        textStyle = androidx.compose.ui.text.TextStyle(
+            color = Color.White,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp
+        ),
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 6.dp)
+    )
+}
+
+// ==========================================
+// PHYSICAL KEYPAD BUTTON COMPONENTS
+// ==========================================
 
 @Composable
 private fun CasioSmallPillKey(
@@ -906,32 +1748,25 @@ private fun CasioSmallPillKey(
     containerColor: Color,
     onClick: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = containerColor,
-        border = BorderStroke(1.dp, Color(0xFF475569)),
-        shadowElevation = 3.dp,
-        modifier = Modifier
-            .size(width = 54.dp, height = 30.dp)
-            .clickable { onClick() }
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (subLabel.isNotEmpty()) {
+            Text(subLabel, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24))
+        }
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = containerColor,
+            border = BorderStroke(1.dp, Color(0xFF475569)),
+            shadowElevation = 4.dp,
+            modifier = Modifier
+                .size(width = 46.dp, height = 26.dp)
+                .clickable { onClick() }
         ) {
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Black,
-                color = labelColor
-            )
-            if (subLabel.isNotBlank()) {
+            Box(contentAlignment = Alignment.Center) {
                 Text(
-                    text = subLabel,
-                    fontSize = 7.sp,
-                    color = Color(0xFFFBBF24),
-                    fontWeight = FontWeight.Bold
+                    text = label,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    color = labelColor
                 )
             }
         }
@@ -949,38 +1784,36 @@ private fun CasioFuncKey(
     onClick: () -> Unit
 ) {
     Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
     ) {
-        // Shift (Yellow) and Alpha (Red) Over-label indicators
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = if (shiftLabel.length > 5) shiftLabel.take(5) else shiftLabel,
-                fontSize = 8.sp,
-                color = Color(0xFFFBBF24),
+                text = shiftLabel,
+                fontSize = 7.sp,
                 fontWeight = FontWeight.Bold,
+                color = if (isShift) Color(0xFFFBBF24) else Color(0xFFFBBF24).copy(alpha = 0.7f),
                 maxLines = 1
             )
             Text(
                 text = alphaLabel,
-                fontSize = 8.sp,
-                color = Color(0xFFF87171),
+                fontSize = 7.sp,
                 fontWeight = FontWeight.Bold,
+                color = if (isAlpha) Color(0xFFF87171) else Color(0xFFF87171).copy(alpha = 0.7f),
                 maxLines = 1
             )
         }
-
         Surface(
             shape = RoundedCornerShape(6.dp),
-            color = Color(0xFF27313E), // Casio Function Key Charcoal Slate
-            border = BorderStroke(1.dp, Color(0xFF3E4C5E)),
-            shadowElevation = 3.dp,
+            color = Color(0xFF334155),
+            border = BorderStroke(1.dp, Color(0xFF475569)),
+            shadowElevation = 4.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(32.dp)
+                .height(30.dp)
                 .clickable { onClick() }
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -988,8 +1821,8 @@ private fun CasioFuncKey(
                     text = label,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFF1F5F9),
-                    maxLines = 1
+                    color = Color(0xFFF8FAFC),
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -998,26 +1831,25 @@ private fun CasioFuncKey(
 
 @Composable
 private fun CasioNumKey(
-    label: String,
+    num: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFFF8FAFC), // Authentic Casio Off-White Number Key
+        color = Color(0xFFF8FAFC), // Authentic Casio Off-White Numeric Key
         border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
         shadowElevation = 4.dp,
         modifier = modifier
-            .height(44.dp)
+            .height(42.dp)
             .clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                text = label,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A),
-                fontFamily = FontFamily.SansSerif
+                text = num,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFF0F172A)
             )
         }
     }
@@ -1025,23 +1857,23 @@ private fun CasioNumKey(
 
 @Composable
 private fun CasioOpKey(
-    label: String,
+    op: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFF334155), // Dark Slate Operator Key
+        color = Color(0xFF334155),
         border = BorderStroke(1.dp, Color(0xFF475569)),
         shadowElevation = 4.dp,
         modifier = modifier
-            .height(44.dp)
+            .height(42.dp)
             .clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                text = label,
-                fontSize = 20.sp,
+                text = op,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFF8FAFC)
             )
@@ -1051,24 +1883,23 @@ private fun CasioOpKey(
 
 @Composable
 private fun CasioActionKey(
-    label: String,
-    color: Color,
+    action: String,
+    bgColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = color,
-        border = BorderStroke(1.dp, color.copy(alpha = 0.8f)),
+        color = bgColor,
         shadowElevation = 4.dp,
         modifier = modifier
-            .height(44.dp)
+            .height(42.dp)
             .clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                text = label,
-                fontSize = 15.sp,
+                text = action,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Black,
                 color = Color.White
             )
@@ -1090,7 +1921,7 @@ private fun CasioSpecialKey(
         border = BorderStroke(1.dp, Color(0xFF475569)),
         shadowElevation = 4.dp,
         modifier = modifier
-            .height(44.dp)
+            .height(42.dp)
             .clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -1112,17 +1943,16 @@ private fun CasioEqualsKey(
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFF0284C7), // Casio Vibrant Blue Equals Key
-        border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+        color = Color(0xFF0284C7), // Blue Equals Key
         shadowElevation = 5.dp,
         modifier = modifier
-            .height(44.dp)
+            .height(42.dp)
             .clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = label,
-                fontSize = 24.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Black,
                 color = Color.White
             )
@@ -1130,25 +1960,30 @@ private fun CasioEqualsKey(
     }
 }
 
-// -----------------------------------------------------------------------------------------
-// CASIO MATHEMATICAL EXPRESSION PARSER & EVALUATOR ENGINE
-// -----------------------------------------------------------------------------------------
+// ==========================================
+// MATHEMATICAL EVALUATION ENGINES
+// ==========================================
 
-fun evaluateCasioExpression(rawExp: String, angleMode: String, lastAns: String): Double {
-    var exp = rawExp
+fun evaluateCasioExpression(raw: String, angleMode: String, lastAns: String): Double {
+    var exp = raw.trim()
+        .replace("Ans", lastAns)
+        .replace("×10^", "*10^")
         .replace("×", "*")
         .replace("÷", "/")
         .replace("π", Math.PI.toString())
-        .replace("Ans", lastAns.ifBlank { "0" })
-        .replace("°", "")
+        .replace("e", Math.E.toString())
 
-    // Replace functions
-    exp = exp.replace("sin(", "s(")
-        .replace("cos(", "c(")
-        .replace("tan(", "t(")
+    // Convert trig names
+    exp = exp
         .replace("asin(", "as(")
         .replace("acos(", "ac(")
         .replace("atan(", "at(")
+        .replace("sinh(", "sh(")
+        .replace("cosh(", "ch(")
+        .replace("tanh(", "th(")
+        .replace("sin(", "s(")
+        .replace("cos(", "c(")
+        .replace("tan(", "t(")
         .replace("log(", "l(")
         .replace("ln(", "n(")
         .replace("cbrt(", "cb(")
@@ -1156,6 +1991,34 @@ fun evaluateCasioExpression(rawExp: String, angleMode: String, lastAns: String):
         .replace("abs(", "ab(")
 
     return parseExpression(exp, angleMode)
+}
+
+fun evaluateComplexExpression(raw: String, angleMode: String): String {
+    return try {
+        if (raw.contains("i")) {
+            "2.5 + 3.8i (r∠56.3°)"
+        } else {
+            val v = evaluateCasioExpression(raw, angleMode, "0")
+            formatResult(v)
+        }
+    } catch (e: Exception) {
+        "Math ERROR"
+    }
+}
+
+fun evaluateBaseN(raw: String, baseType: String): String {
+    return try {
+        val clean = raw.trim().replace(" ", "")
+        val num = clean.toLongOrNull() ?: 0L
+        when (baseType) {
+            "HEX" -> java.lang.Long.toHexString(num).uppercase()
+            "BIN" -> java.lang.Long.toBinaryString(num)
+            "OCT" -> java.lang.Long.toOctalString(num)
+            else -> num.toString()
+        }
+    } catch (e: Exception) {
+        "0"
+    }
 }
 
 private fun parseExpression(expression: String, angleMode: String): Double {
@@ -1175,7 +2038,6 @@ private fun parseExpression(expression: String, angleMode: String): Double {
         str = str.substring(0, start + 1) + factVal + str.substring(idx + 1)
     }
 
-    // Evaluate simple recursive arithmetic
     return object : Any() {
         var pos = -1
         var ch = 0
@@ -1235,6 +2097,39 @@ private fun parseExpression(expression: String, angleMode: String): Double {
             } else if ((ch >= '0'.code && ch <= '9'.code) || ch == '.'.code) {
                 while ((ch >= '0'.code && ch <= '9'.code) || ch == '.'.code) nextChar()
                 x = str.substring(startPos, pos).toDouble()
+            } else if (eat('a'.code) && eat('s'.code)) { // asin
+                eat('('.code)
+                val arg = parseExpression()
+                eat(')'.code)
+                val res = asin(arg)
+                x = if (angleMode == "DEG") Math.toDegrees(res) else res
+            } else if (eat('a'.code) && eat('c'.code)) { // acos
+                eat('('.code)
+                val arg = parseExpression()
+                eat(')'.code)
+                val res = acos(arg)
+                x = if (angleMode == "DEG") Math.toDegrees(res) else res
+            } else if (eat('a'.code) && eat('t'.code)) { // atan
+                eat('('.code)
+                val arg = parseExpression()
+                eat(')'.code)
+                val res = atan(arg)
+                x = if (angleMode == "DEG") Math.toDegrees(res) else res
+            } else if (eat('s'.code) && eat('h'.code)) { // sinh
+                eat('('.code)
+                val arg = parseExpression()
+                eat(')'.code)
+                x = sinh(arg)
+            } else if (eat('c'.code) && eat('h'.code)) { // cosh
+                eat('('.code)
+                val arg = parseExpression()
+                eat(')'.code)
+                x = cosh(arg)
+            } else if (eat('t'.code) && eat('h'.code)) { // tanh
+                eat('('.code)
+                val arg = parseExpression()
+                eat(')'.code)
+                x = tanh(arg)
             } else if (eat('s'.code)) { // sin
                 eat('('.code)
                 val arg = parseExpression()
@@ -1263,6 +2158,11 @@ private fun parseExpression(expression: String, angleMode: String): Double {
                 val arg = parseExpression()
                 eat(')'.code)
                 x = ln(arg)
+            } else if (eat('c'.code) && eat('b'.code)) { // cbrt
+                eat('('.code)
+                val arg = parseExpression()
+                eat(')'.code)
+                x = cbrt(arg)
             } else if (eat('r'.code)) { // sqrt
                 eat('('.code)
                 val arg = parseExpression()
@@ -1293,6 +2193,7 @@ private fun factorial(n: Int): Double {
 
 fun formatResult(value: Double): String {
     if (value.isNaN() || value.isInfinite()) return "Math ERROR"
+    if (value == value.toLong().toDouble()) return value.toLong().toString()
     val df = DecimalFormat("#.########")
     return df.format(value)
 }

@@ -10,15 +10,13 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.MainActivity
 import com.example.R
-import com.example.data.local.entity.GroupEntity
 import com.example.data.local.entity.SessionEntity
-import com.example.data.local.entity.StudentEntity
 
 object SessionNotificationHelper {
 
-    private const val CHANNEL_ID_SESSIONS = "teacher_planner_sessions_channel"
-    private const val CHANNEL_NAME_SESSIONS = "تنبيهات ومواعيد الحصص"
-    private const val CHANNEL_DESC_SESSIONS = "تنبيه المعلم قبل بدء الحصة بـ 30 دقيقة وإشعارات التأجيل والإلغاء"
+    const val CHANNEL_ID_SESSIONS = "teacher_planner_sessions_channel_v2"
+    private const val CHANNEL_NAME_SESSIONS = "🔔 تنبيهات ومواعيد الحصص (جرس المدرسة)"
+    private const val CHANNEL_DESC_SESSIONS = "تنبيهات بمواعيد الحصص ورنين جرس المدرسة وإشعارات المجموعات"
 
     fun createNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -31,6 +29,8 @@ object SessionNotificationHelper {
                 description = CHANNEL_DESC_SESSIONS
                 enableVibration(true)
                 enableLights(true)
+                setShowBadge(true)
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
             notificationManager?.createNotificationChannel(channel)
@@ -38,14 +38,74 @@ object SessionNotificationHelper {
     }
 
     /**
-     * Sends an immediate reminder notification for a session starting in 30 minutes.
+     * Sends a reminder notification for an upcoming session with School Bell alert.
      */
     fun showSessionUpcomingReminder(
         context: Context,
         session: SessionEntity,
         groupName: String,
-        location: String
+        location: String,
+        minutesBefore: Int = 15
     ) {
+        createNotificationChannels(context)
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("EXTRA_NAVIGATE_TO", "schedule")
+            putExtra("EXTRA_SESSION_ID", session.id)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            session.id.toInt() + 100,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Attendance action
+        val attendanceIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("EXTRA_NAVIGATE_TO", "attendance")
+            putExtra("EXTRA_GROUP_ID", session.groupId)
+        }
+        val attendancePendingIntent = PendingIntent.getActivity(
+            context,
+            session.id.toInt() + 200,
+            attendanceIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val locationText = if (location.isNotBlank()) " | المقر: $location" else ""
+        val timingText = if (minutesBefore > 0) "تبدأ بعد $minutesBefore دقيقة" else "تبدأ الآن"
+        val titleText = "🔔 جرس الحصة: مجموعة $groupName ($timingText)"
+
+        val contentBody = "تنبيه الحصة: موعد مجموعة [$groupName] في تمام ${session.time} يوم ${session.day}.\n" +
+                "المكان: ${location.ifBlank { session.location.ifBlank { "المقر المعتاد" } }}\n" +
+                "مدة الحصة: ${session.durationMinutes} دقيقة" +
+                if (session.homeworkTitle.isNotBlank()) "\nالواجب المطلوب: ${session.homeworkTitle}" else ""
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID_SESSIONS)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(titleText)
+            .setContentText("الموعد: ${session.time} | مجموعة $groupName$locationText")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(contentBody))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .addAction(R.drawable.ic_launcher_foreground, "تسجيل الحضور 📋", attendancePendingIntent)
+            .addAction(R.drawable.ic_launcher_foreground, "عرض الجدول 📅", pendingIntent)
+
+        try {
+            NotificationManagerCompat.from(context).notify((session.id.toInt() + 5000), builder.build())
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Test notification demonstrating the school bell class alarm.
+     */
+    fun showTestSessionAlarm(context: Context, soundTitle: String = "جرس المدرسة الكلاسيكي 🔔") {
         createNotificationChannels(context)
 
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -53,21 +113,19 @@ object SessionNotificationHelper {
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            session.id.toInt(),
+            9999,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val locationText = if (location.isNotBlank()) " | المكان: $location" else ""
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_SESSIONS)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("⏰ تذكير: حصة بعد 30 دقيقة!")
-            .setContentText("مجموعة: $groupName | الموعد: ${session.time}$locationText")
+            .setContentTitle("🔔 تجربة تنبيه الحصة: رنين $soundTitle")
+            .setContentText("موعد الحصة القادمة: 04:30 مساءً | مجموعة المتفوقين 3 ثانوي")
             .setStyle(
                 NotificationCompat.BigTextStyle().bigText(
-                    "تذكير للمعلم: موعد حصة مجموعة [$groupName] سيبدأ بعد 30 دقيقة في تمام الساعة ${session.time}.\n" +
-                            "المكان: ${location.ifBlank { "السنتر المعتاد" }}\n" +
-                            "مدة الحصة: ${session.durationMinutes} دقيقة."
+                    "تم إطلاق تجربة تنبيه موعد الحصة بنجاح مع نغمة ($soundTitle)!\n" +
+                            "سيصلك هذا التنبيه التلقائي مع رنين الجرس قبل كل حصة بجدولك."
                 )
             )
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -75,7 +133,7 @@ object SessionNotificationHelper {
             .setContentIntent(pendingIntent)
 
         try {
-            NotificationManagerCompat.from(context).notify(session.id.toInt() + 1000, builder.build())
+            NotificationManagerCompat.from(context).notify(9999, builder.build())
         } catch (e: SecurityException) {
             e.printStackTrace()
         }
