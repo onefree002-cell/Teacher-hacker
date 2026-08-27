@@ -71,5 +71,15 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onStop() {
+        super.onStop()
+        // Lock app immediately when app is minimized, exited, or screen turned off
+        try {
+            PinLockManager.lockApp()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }
 
