@@ -77,6 +77,26 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    // 5-Step Interactive Guided Tour Button
+                    IconButton(
+                        onClick = { com.example.util.AppPreferencesManager.setHasSeenTour(false) },
+                        modifier = Modifier.testTag("dashboard_tour_button")
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = AmberGold.copy(alpha = 0.2f),
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Filled.RocketLaunch,
+                                    contentDescription = "الجولة التفاعلية",
+                                    tint = AmberGoldDark,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
                     // Language Switcher Button on Main Screen
                     IconButton(
                         onClick = { showLanguageDialog = true },
@@ -189,6 +209,154 @@ fun DashboardScreen(
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
+                    }
+                }
+            }
+
+            // 1.5. PROMINENT DIRECT CREATION BAR (إضافة مجموعة - إضافة طالب - إضافة حصة)
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = if (com.example.util.L.isArabic()) "⚡ إجراءات سريعة فورية" else "⚡ Quick Actions",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 1. ADD GROUP BUTTON
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = IndigoExam.copy(alpha = 0.12f)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, IndigoExam.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onNavigateToGroups() }
+                                .testTag("dashboard_quick_add_group")
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(IndigoExam),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Filled.GroupAdd,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (com.example.util.L.isArabic()) "+ إضافة مجموعة" else "+ Add Group",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = IndigoExam,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        // 2. ADD STUDENT BUTTON
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = EmeraldSuccess.copy(alpha = 0.12f)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, EmeraldSuccess.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onNavigateToStudents() }
+                                .testTag("dashboard_quick_add_student")
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(EmeraldSuccess),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Filled.PersonAdd,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (com.example.util.L.isArabic()) "+ إضافة طالب" else "+ Add Student",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = EmeraldSuccess,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        // 3. ADD SESSION BUTTON
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = NavyPrimary.copy(alpha = 0.12f)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, NavyPrimary.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onNavigateToSchedule() }
+                                .testTag("dashboard_quick_add_session")
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(NavyPrimary),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Filled.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (com.example.util.L.isArabic()) "+ إضافة حصة" else "+ Add Session",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = NavyPrimary,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
                 }
             }

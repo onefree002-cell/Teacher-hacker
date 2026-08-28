@@ -26,18 +26,26 @@ object StudyFileManager {
     const val SUBFOLDER_HOMEWORK = "Homework_Exports"
 
     /**
-     * Root App Files Folder inside application internal storage (filesDir/هاكر_التدريس)
+     * Root App Files Folder inside DOCUMENTS / TEACHER HACKER
      */
     fun getAppRootDirectory(context: Context): File {
-        val baseDir = context.filesDir
-        val dir = File(baseDir, APP_MAIN_FOLDER)
+        val dir = TeacherHackerDirectoryManager.getTeacherHackerRootDir(context)
         if (!dir.exists()) {
             dir.mkdirs()
         }
 
-        // Migrate any previous files from old folder if exists
+        // Migrate any previous files from old internal folder if exists
         try {
-            val oldDir = File(baseDir, OLD_MAIN_FOLDER)
+            val oldInternal = File(context.filesDir, APP_MAIN_FOLDER)
+            if (oldInternal.exists() && oldInternal.isDirectory) {
+                oldInternal.listFiles()?.forEach { file ->
+                    val target = File(dir, file.name)
+                    if (!target.exists()) {
+                        file.copyRecursively(target, overwrite = true)
+                    }
+                }
+            }
+            val oldDir = File(context.filesDir, OLD_MAIN_FOLDER)
             if (oldDir.exists() && oldDir.isDirectory) {
                 oldDir.listFiles()?.forEach { file ->
                     val target = File(dir, file.name)

@@ -1,11 +1,15 @@
 package com.example.ui.components
 
+import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,188 +22,62 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.data.local.entity.GroupEntity
+import com.example.data.local.entity.SessionEntity
+import com.example.data.local.entity.StudentEntity
+import com.example.data.repository.TeacherPlannerRepository
 import com.example.navigation.Screen
+import com.example.ui.screens.attendance.AttendanceViewModel
+import com.example.ui.screens.groups.GroupsViewModel
+import com.example.ui.screens.students.StudentsViewModel
 import com.example.ui.theme.*
 import com.example.util.AppPreferencesManager
 import com.example.util.L
-import com.example.util.LocaleManager
+import kotlinx.coroutines.launch
 
-data class TourStep(
-    val title: String,
-    val subtitle: String,
-    val description: String,
-    val icon: ImageVector,
-    val color: Color,
-    val badge: String,
-    val highlights: List<String>,
-    val targetScreenRoute: String? = null
-)
-
+/**
+ * دليل المعلم التفاعلي وأكاديمية المهام التدريبية (Teacher Academy & Interactive Guide)
+ * يقدم:
+ * 1. مهام المعلم التفاعلية مع خطوات التنفيذ وزر انتقال مباشر لكل شاشة.
+ * 2. خريطة تفصيلية لجميع مكونات وشاشات التطبيق ووظيفتها.
+ * 3. حيل ونصائح المعلم المحترف (Pro Tips) لأفضل استخدام يومي.
+ */
 @Composable
 fun AppGuidedTourDialog(
+    repository: TeacherPlannerRepository? = null,
+    groupsViewModel: GroupsViewModel? = null,
+    studentsViewModel: StudentsViewModel? = null,
+    attendanceViewModel: AttendanceViewModel? = null,
     onDismiss: () -> Unit,
     onNavigateToScreen: ((String) -> Unit)? = null
 ) {
     val isArabic = L.isArabic()
-    var currentStepIndex by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
-    val tourSteps = remember(isArabic) {
-        listOf(
-            TourStep(
-                title = if (isArabic) "لوحة التحكم الذكية والإحصائيات" else "Smart Dashboard & Overview",
-                subtitle = if (isArabic) "نظرة شاملة ولحظية على كل تفاصيل عملك" else "Real-time summary of students, revenue & tasks",
-                description = if (isArabic) "تمنحك لوحة التحكم إحصائيات سريعة عن عدد الطلاب المسجلين، حضور اليوم، الحصص القادمة، والإيرادات الشهرية بضغطة زر واحدة." else "Get instantaneous insights into active students, daily attendance, upcoming lessons, and monthly earnings in one tap.",
-                icon = Icons.Filled.Dashboard,
-                color = NavyPrimary,
-                badge = "📊 1",
-                highlights = listOf(
-                    if (isArabic) "إحصائيات مباشرة وفورية لحصص اليوم" else "Live statistics for today's scheduled classes",
-                    if (isArabic) "أزرار وصول سريع لتسجيل الحضور وإضافة الطلاب" else "Quick action shortcuts for faster workflows",
-                    if (isArabic) "تنبيهات تلقائية بالحصص القادمة والمتأخرات" else "Automated alerts for pending tasks & overdue fees"
-                ),
-                targetScreenRoute = Screen.Dashboard.route
-            ),
-            TourStep(
-                title = if (isArabic) "سجل الطلاب والتواصل الفوري (واتساب)" else "Students Directory & WhatsApp Connect",
-                subtitle = if (isArabic) "إدارة ملفات الطلاب وباركود QR والرسائل الذكية" else "Complete student records, QR codes & messaging",
-                description = if (isArabic) "سجل كامل لكل طالب يشمل بيانات الاتصال، ولي الأمر، الباركود المخصص لبطاقة الطالب، مع إرسال رسائل واتساب وتقارير درجات فورية بنقرة واحدة." else "Store complete profiles, emergency contacts, student QR IDs, with 1-click WhatsApp messaging and automated score cards.",
-                icon = Icons.Filled.People,
-                color = Color(0xFF0284C7),
-                badge = "👥 2",
-                highlights = listOf(
-                    if (isArabic) "إرسال تقرير الحضور والدرجات عبر واتساب بدون حفظ الرقم" else "Direct WhatsApp notifications without saving numbers",
-                    if (isArabic) "توليد وطباعة بطاقات QR وكود الباركود لكل طالب" else "Auto-generate student ID cards with printable QR",
-                    if (isArabic) "تتبع التقييم السلوكي والملاحظات الشخصية" else "Track behavioral notes and performance history"
-                ),
-                targetScreenRoute = Screen.Students.route
-            ),
-            TourStep(
-                title = if (isArabic) "المجموعات والمراحل التعليمية" else "Classes & Educational Stages",
-                subtitle = if (isArabic) "تنظيم المجموعات حسب المرحلة والصف والسعر" else "Organize groups by stage, grade & tuition rate",
-                description = if (isArabic) "أنشئ مجموعاتك الدراسية مع تحديد المرحلة التعليمية (ابتدائي، إعدادي، ثانوي)، أيام الحصص، الطاقة الاستيعابية، وسعر الحصة أو الشهر." else "Group your classes by education level (Primary, Prep, Secondary), setting schedules, student capacity, and monthly rates.",
-                icon = Icons.Filled.Groups,
-                color = Color(0xFF7C3AED),
-                badge = "🏫 3",
-                highlights = listOf(
-                    if (isArabic) "دعم كامل لجميع المراحل والسنتر والمجموعات الخاصة" else "Full support for centers, private & online groups",
-                    if (isArabic) "تحديد سعة القاعة لمنع التكدس" else "Capacity limits to avoid room overcrowding",
-                    if (isArabic) "تصفية سريعة للمجموعات بضغطة زر" else "Instant stage-based filtering"
-                ),
-                targetScreenRoute = Screen.Groups.route
-            ),
-            TourStep(
-                title = if (isArabic) "جدول المواعيد والحصص الأسبوعي" else "Weekly Schedule & Timetable",
-                subtitle = if (isArabic) "تنظيم مواعيد الحصص والقاعات بدقة لمنع التعارض" else "Schedule classes and venues without conflict",
-                description = if (isArabic) "جدول منظم لأيام الأسبوع يوضح مواعيد كل حصة، القاعة أو السنتر، عدد الطلاب، مع إمكانية إلغاء أو تأجيل الحصة وإرسال إشعار فوري للطلاب." else "Interactive weekly timetable showing lesson timings, venues, and student rosters, with 1-tap class cancellation alerts.",
-                icon = Icons.Filled.CalendarMonth,
-                color = Color(0xFF059669),
-                badge = "📅 4",
-                highlights = listOf(
-                    if (isArabic) "عرض زمني واضح لجميع أيام الأسبوع" else "Clear day-by-day timetable grid",
-                    if (isArabic) "تنبيه ذكي عند وجود تعارض في المواعيد أو القاعات" else "Smart collision detection for overlapping slots",
-                    if (isArabic) "تأجيل أو تقديم الحصص مع إشعار المجموعة" else "Reschedule lessons with group broadcast"
-                ),
-                targetScreenRoute = Screen.Schedule.route
-            ),
-            TourStep(
-                title = if (isArabic) "تسجيل الحضور السريع والباركود" else "Fast Attendance & QR Scanner",
-                subtitle = if (isArabic) "حضور، غياب، تأخير، مع مسح الكاميرا السريع" else "1-tap status, camera QR scan & auto SMS",
-                description = if (isArabic) "سجل حضور طلابك بلمسة واحدة أو عبر توجيه الكاميرا لباركود الطالب. يحفظ التطبيق تاريخ ووقت الحضور ويرسل إشعاراً لولي الأمر في حال الغياب." else "Record attendance in seconds by tapping or scanning student cards. Instantly notifies parents if a student is absent.",
-                icon = Icons.Filled.FactCheck,
-                color = EmeraldGreen,
-                badge = "✅ 5",
-                highlights = listOf(
-                    if (isArabic) "أزرار واضحة وسريعة: حاضر ✔️ / غائب ❌ / متأخر ⏳" else "One-tap buttons: Present, Absent, Late",
-                    if (isArabic) "ماسح باركود وQR فائق السرعة عبر الكاميرا" else "Ultra-fast QR/Barcode camera scanner",
-                    if (isArabic) "إرسال إشعار فوري لولي الأمر عند الغياب" else "Immediate automated absence alert to parents"
-                ),
-                targetScreenRoute = Screen.Attendance.route
-            ),
-            TourStep(
-                title = if (isArabic) "تصوير ورصد الواجب المنزلي" else "Homework Scanner & Grading",
-                subtitle = if (isArabic) "رصد كامل/ناقص/لم يحل مع تصوير كشكول الواجب" else "Homework check & quick camera snapshot",
-                description = if (isArabic) "قسّم متابعة الحصة بسهولة: سجّل حالة أداء الواجب (كامل 💯، ناقص ⚠️، لم يحل ❌) مع زر تصوير سريع لتوثيق صفحة الواجب أو الكشكول." else "Seamlessly log homework performance (Complete, Incomplete, Not Done) with a quick camera snapshot to archive assignments.",
-                icon = Icons.Filled.PhotoCamera,
-                color = Color(0xFFD97706),
-                badge = "📸 6",
-                highlights = listOf(
-                    if (isArabic) "تقييم حالة الواجب بضغطة زر (كامل، ناقص، لم يحل)" else "1-tap homework grading chips",
-                    if (isArabic) "زر كاميرا سريع لالتقاط صورة الواجب وحفظها" else "Quick camera shutter to photograph notebook pages",
-                    if (isArabic) "تنبيه تلقائي لولي الأمر عند إهمال الواجب" else "Automatic parent alert for incomplete homework"
-                ),
-                targetScreenRoute = Screen.Attendance.route
-            ),
-            TourStep(
-                title = if (isArabic) "بنك الأسئلة والشيتات والاختبارات" else "Question Bank & Exam Maker",
-                subtitle = if (isArabic) "إنشاء شيتات وامتحانات وتحديد الإجابة الصحيحة" else "Create exams, sheets, formulas & 2D/3D shapes",
-                description = if (isArabic) "بنك أسئلة متكامل يدعم الاختيار من متعدد، صح وخطأ، الأسئلة المقالية، إدراج الرموز والمعادلات الرياضية، وإرفاق أشكال هندسية 2D و 3D مع توليد شيتات PDF جاهزة للطباعة." else "Comprehensive question repository supporting MCQ answer keys, True/False, essay questions, math equations, 2D/3D geometry diagrams, and printable PDF exams.",
-                icon = Icons.Filled.Quiz,
-                color = Color(0xFFDC2626),
-                badge = "📝 7",
-                highlights = listOf(
-                    if (isArabic) "تحديد الإجابة النموذجية الصحيحة في أسئلة الاختيارات والصح والخطأ" else "Mark correct answers for MCQ & True/False",
-                    if (isArabic) "شريط إدراج المعادلات والرموز الرياضية والأشكال الهندسية" else "Math formula inserter and 2D/3D geometry presets",
-                    if (isArabic) "تصدير امتحانات وشيتات منسقة PDF مع نموذج الإجابة" else "Export formatted PDF sheets with answer key"
-                ),
-                targetScreenRoute = Screen.QuestionBank.route
-            ),
-            TourStep(
-                title = if (isArabic) "الحسابات والاشتراكات والمصروفات" else "Financial Accounts & Fees",
-                subtitle = if (isArabic) "تحصيل المصروفات، متابعة المتبقي، وإيصالات الدفع" else "Track student fees, balances & payment receipts",
-                description = if (isArabic) "متابعة دقيقة لاشتراكات الطلاب الشهرية، المبالغ المدفوعة والمتبقية، تسجيل المصروفات الشخصية والسنتر، مع طباعة إيصالات استلام نقدية منسقة." else "Full ledger tracking monthly dues, collected payments, outstanding balances, center expenses, and printable receipts.",
-                icon = Icons.Filled.AccountBalanceWallet,
-                color = AmberGoldDark,
-                badge = "💰 8",
-                highlights = listOf(
-                    if (isArabic) "تسجيل الدفع الكامل أو الجزئي بلمسة واحدة" else "Log full or partial fee payments instantly",
-                    if (isArabic) "كشف حساب مفصل بالمبالغ المتبقية على كل طالب" else "Overdue fees breakdown and payment reminders",
-                    if (isArabic) "تقارير أرباح شهرية وصافية قابلة للتصدير Excel و PDF" else "Monthly net profit reports in Excel & PDF"
-                ),
-                targetScreenRoute = Screen.Finance.route
-            ),
-            TourStep(
-                title = if (isArabic) "أدوات المعلم وحاسبة كاسيو العلمية" else "Teacher Tools & Casio Scientific fx",
-                subtitle = if (isArabic) "حاسبة كاسيو fx-991ES، سبورة رسم، وأدوات هندسية" else "Casio fx-991ES, whiteboard & geometric tools",
-                description = if (isArabic) "حاسبة كاسيو العلمية الواقعية المطابقة لدليل PDF باتجاه LTR ثابت، مسطرة دقيقة، منقلة، برجل، سبورة بيضاء ذكية، وعارض الكتب والمذكرات مع استخراج الصفحات." else "Authentic Casio fx-991ES PLUS scientific calculator with fixed LTR layout, interactive whiteboard, geometry ruler/compass, and PDF book page extractor.",
-                icon = Icons.Filled.AutoFixHigh,
-                color = Color(0xFF9333EA),
-                badge = "📐 9",
-                highlights = listOf(
-                    if (isArabic) "حاسبة كاسيو fx-991ES العلمية بدقة فائقة وشاشة V.P.A.M" else "Casio fx-991ES PLUS calculator emulator",
-                    if (isArabic) "أدوات هندسية تفاعلية (مسطرة، منقلة 360°، برجل)" else "Interactive geometry tools on drawing canvas",
-                    if (isArabic) "زر وصول سريع دائم في شريط التنقل السفلي" else "Direct dedicated tab in the bottom navigation bar"
-                ),
-                targetScreenRoute = Screen.TeacherTools.route
-            ),
-            TourStep(
-                title = if (isArabic) "النسخ الاحتياطي وتليجرام والأمان" else "Auto Backup, Telegram & Security",
-                subtitle = if (isArabic) "حماية بياناتك للأبد وقفل التطبيق برقم سري" else "Keep data safe forever with PIN lock & backups",
-                description = if (isArabic) "حفظ نسخة احتياطية من كل بياناتك محلياً أو إرسالها تلقائياً إلى رقم تليجرام الخاص بك، مع إمكانية قفل التطبيق برقم PIN سري لحماية خصوصيتك." else "Safeguard data locally or auto-send backups to Telegram, plus PIN security lock to keep records private.",
-                icon = Icons.Filled.Backup,
-                color = Color(0xFF0284C7),
-                badge = "💾 10",
-                highlights = listOf(
-                    if (isArabic) "نسخ احتياطي تلقائي يرسل إلى تليجرام" else "Automatic backup to Telegram chat",
-                    if (isArabic) "استعادة بياناتك بالكامل في أي وقت" else "Complete 1-tap data restoration",
-                    if (isArabic) "قفل التطبيق برمز PIN لحماية البيانات" else "PIN code protection for total security"
-                ),
-                targetScreenRoute = Screen.Backup.route
-            )
-        )
-    }
+    // Active Navigation Tab: 0 = مهام المعلم التفاعلية, 1 = خريطة مكونات التطبيق, 2 = حيل ونصائح الاستخدام
+    var selectedTab by remember { mutableIntStateOf(0) }
 
-    val currentStep = tourSteps[currentStepIndex]
-    val totalSteps = tourSteps.size
+    // State for interactive sandbox demo inside tasks
+    var demoGroupName by remember { mutableStateOf("مجموعة أوائل الثانوية") }
+    var isDemoGroupCreated by remember { mutableStateOf(false) }
+
+    var demoStudentName by remember { mutableStateOf("أحمد محمود علي") }
+    var isDemoStudentCreated by remember { mutableStateOf(false) }
+
+    var demoAttendanceStatus by remember { mutableStateOf<String?>(null) }
+    var isDemoAttendanceRecorded by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -208,874 +86,958 @@ fun AppGuidedTourDialog(
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
             modifier = Modifier
-                .fillMaxWidth(0.95f)
+                .fillMaxWidth(0.96f)
                 .fillMaxHeight(0.94f)
-                .padding(6.dp)
+                .padding(4.dp)
                 .testTag("app_guided_tour_dialog")
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(18.dp)
+                    .padding(16.dp)
             ) {
-                // Top Header Bar
+                // =============================================================
+                // 1. TOP HEADER: Title, Icon & Close Action
+                // =============================================================
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = currentStep.color.copy(alpha = 0.15f),
-                            modifier = Modifier.size(42.dp)
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(46.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = currentStep.icon,
+                                    Icons.Filled.School,
                                     contentDescription = null,
-                                    tint = currentStep.color,
-                                    modifier = Modifier.size(24.dp)
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = L.appGuidedTour(),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                text = if (isArabic) "أكاديمية المعلم ودليل المهام 🚀" else "Teacher Academy & Task Guide 🚀",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = L.stepOf(currentStepIndex + 1, totalSteps),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = currentStep.color
-                            )
-                        }
-                    }
-
-                    // Skip button
-                    TextButton(
-                        onClick = {
-                            AppPreferencesManager.setHasSeenTour(true)
-                            onDismiss()
-                        },
-                        modifier = Modifier.testTag("tour_skip_btn")
-                    ) {
-                        Text(
-                            text = L.skipTour(),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Step Progress Bar
-                LinearProgressIndicator(
-                    progress = { (currentStepIndex + 1).toFloat() / totalSteps.toFloat() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp)),
-                    color = currentStep.color,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Scrollable Content
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Feature Banner Card
-                    Card(
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = currentStep.color.copy(alpha = 0.08f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = currentStep.title,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 18.sp
-                                    ),
-                                    color = currentStep.color,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = currentStep.color
-                                ) {
-                                    Text(
-                                        text = currentStep.badge,
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-
-                            Text(
-                                text = currentStep.subtitle,
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            Text(
-                                text = currentStep.description,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    lineHeight = 21.sp,
-                                    fontSize = 14.sp
-                                ),
+                                text = if (isArabic) "تعلم كيفية تنفيذ المهام واستكشف جميع مكونات التطبيق" else "Learn how to do tasks & explore all app features",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    // -------------------------------------------------------------
-                    // HANDS-ON INTERACTIVE PLAYGROUND (المستخدم يجرب بجد)
-                    // -------------------------------------------------------------
-                    InteractiveStepPlayground(
-                        stepIndex = currentStepIndex,
-                        isArabic = isArabic,
-                        accentColor = currentStep.color
-                    )
-
-                    // Key Highlights
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                    IconButton(
+                        onClick = {
+                            AppPreferencesManager.setHasSeenTour(true)
+                            onDismiss()
+                        },
+                        modifier = Modifier.testTag("tour_close_btn")
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = if (isArabic) "✨ أهم ما يميز هذا القسم:" else "✨ Key Highlights:",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-
-                            currentStep.highlights.forEach { highlight ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 2.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.CheckCircle,
-                                        contentDescription = null,
-                                        tint = currentStep.color,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = highlight,
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = if (isArabic) "إغلاق" else "Close",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
+                }
 
-                    // Interactive Live Visit Page Shortcut
-                    if (currentStep.targetScreenRoute != null && onNavigateToScreen != null) {
-                        FilledTonalButton(
-                            onClick = {
-                                AppPreferencesManager.setHasSeenTour(true)
-                                onNavigateToScreen(currentStep.targetScreenRoute)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("tour_visit_page_btn"),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = currentStep.color.copy(alpha = 0.15f),
-                                contentColor = currentStep.color
-                            )
-                        ) {
-                            Icon(Icons.Filled.Launch, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // =============================================================
+                // 2. NAVIGATION TABS (المهام التفاعلية / خريطة المكونات / نصائح المحترفين)
+                // =============================================================
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = {
                             Text(
-                                text = if (isArabic) "تجربة والانتقال لصفحة ${currentStep.title} الآن 🚀" else "Go & Test ${currentStep.title} Now 🚀",
-                                fontWeight = FontWeight.Bold
+                                text = if (isArabic) "⚡ مهام المعلم العملية" else "⚡ Action Tasks",
+                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 12.sp
                             )
+                        },
+                        icon = {
+                            Icon(Icons.Filled.Checklist, contentDescription = null, modifier = Modifier.size(18.dp))
                         }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = {
+                            Text(
+                                text = if (isArabic) "🗺️ خريطة المكونات" else "🗺️ App Modules",
+                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 12.sp
+                            )
+                        },
+                        icon = {
+                            Icon(Icons.Filled.GridView, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = {
+                            Text(
+                                text = if (isArabic) "💡 حيل ونصائح" else "💡 Pro Tips",
+                                fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 12.sp
+                            )
+                        },
+                        icon = {
+                            Icon(Icons.Filled.Lightbulb, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // =============================================================
+                // 3. TAB CONTENT
+                // =============================================================
+                Box(modifier = Modifier.weight(1f)) {
+                    when (selectedTab) {
+                        0 -> TeacherTasksGuideTab(
+                            isArabic = isArabic,
+                            demoGroupName = demoGroupName,
+                            onDemoGroupNameChange = { demoGroupName = it },
+                            isDemoGroupCreated = isDemoGroupCreated,
+                            onCreateDemoGroup = {
+                                coroutineScope.launch {
+                                    val group = GroupEntity(
+                                        name = demoGroupName.trim(),
+                                        grade = "الثالث الثانوي",
+                                        pricingType = "monthly",
+                                        monthlyPrice = 300.0,
+                                        sessionDays = "السبت والأربعاء",
+                                        sessionTime = "16:00",
+                                        durationMinutes = 90,
+                                        location = "سنتر الأوائل",
+                                        currentTerm = "الترم الأول"
+                                    )
+                                    if (repository != null) {
+                                        repository.insertGroup(group)
+                                    } else if (groupsViewModel != null) {
+                                        groupsViewModel.addOrUpdateGroup(group)
+                                    }
+                                    isDemoGroupCreated = true
+                                    Toast.makeText(context, if (isArabic) "✅ تم إنشاء المجموعة وحفظها في قاعدة البيانات!" else "Group created!", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            demoStudentName = demoStudentName,
+                            onDemoStudentNameChange = { demoStudentName = it },
+                            isDemoStudentCreated = isDemoStudentCreated,
+                            onCreateDemoStudent = {
+                                coroutineScope.launch {
+                                    val student = StudentEntity(
+                                        name = demoStudentName.trim(),
+                                        phone = "01012345678",
+                                        parentPhone = "01198765432",
+                                        groupId = 1L,
+                                        grade = "الثالث الثانوي",
+                                        barcodeCode = "STU-${(1000..9999).random()}",
+                                        tags = "طالب متميز"
+                                    )
+                                    if (repository != null) {
+                                        repository.insertStudent(student)
+                                    } else if (studentsViewModel != null) {
+                                        studentsViewModel.addOrUpdateStudent(student)
+                                    }
+                                    isDemoStudentCreated = true
+                                    Toast.makeText(context, if (isArabic) "✅ تم إضافة الطالب وتوليد باركود QR بنجاح!" else "Student created with QR!", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            demoAttendanceStatus = demoAttendanceStatus,
+                            isDemoAttendanceRecorded = isDemoAttendanceRecorded,
+                            onRecordDemoAttendance = { st ->
+                                demoAttendanceStatus = st
+                                isDemoAttendanceRecorded = true
+                                Toast.makeText(context, if (isArabic) "✅ تم تسجيل الحضور وتحديث لوحة التحكم!" else "Attendance marked!", Toast.LENGTH_SHORT).show()
+                            },
+                            onNavigateTo = { route ->
+                                AppPreferencesManager.setHasSeenTour(true)
+                                onDismiss()
+                                onNavigateToScreen?.invoke(route)
+                            }
+                        )
+                        1 -> AppModulesGuideTab(
+                            isArabic = isArabic,
+                            onNavigateTo = { route ->
+                                AppPreferencesManager.setHasSeenTour(true)
+                                onDismiss()
+                                onNavigateToScreen?.invoke(route)
+                            }
+                        )
+                        2 -> ProTipsGuideTab(
+                            isArabic = isArabic,
+                            onNavigateTo = { route ->
+                                AppPreferencesManager.setHasSeenTour(true)
+                                onDismiss()
+                                onNavigateToScreen?.invoke(route)
+                            }
+                        )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Step indicator dots
+                // =============================================================
+                // 4. BOTTOM BAR: Finish & Dismiss Action
+                // =============================================================
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    repeat(totalSteps) { index ->
-                        val isCurrent = currentStepIndex == index
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 3.dp)
-                                .size(if (isCurrent) 10.dp else 6.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isCurrent) currentStep.color else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                )
-                                .clickable {
-                                    currentStepIndex = index
-                                }
-                        )
+                    Text(
+                        text = if (isArabic) "💡 يمكنك فتح هذا الدليل مجدداً من أيقونة الصاروخ 🚀 بالأعلى" else "💡 Reopen guide anytime via 🚀 icon on top",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            AppPreferencesManager.setHasSeenTour(true)
+                            onDismiss()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text(if (isArabic) "فهمت وابدأ العمل الآن ✓" else "Got it! Start Working ✓", fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+        }
+    }
+}
 
-                Spacer(modifier = Modifier.height(8.dp))
+// =============================================================================
+// TAB 1: TEACHER INTERACTIVE TASKS (مهام المعلم العملية مع الشرح والتنفيذ)
+// =============================================================================
+@Composable
+private fun TeacherTasksGuideTab(
+    isArabic: Boolean,
+    demoGroupName: String,
+    onDemoGroupNameChange: (String) -> Unit,
+    isDemoGroupCreated: Boolean,
+    onCreateDemoGroup: () -> Unit,
+    demoStudentName: String,
+    onDemoStudentNameChange: (String) -> Unit,
+    isDemoStudentCreated: Boolean,
+    onCreateDemoStudent: () -> Unit,
+    demoAttendanceStatus: String?,
+    isDemoAttendanceRecorded: Boolean,
+    onRecordDemoAttendance: (String) -> Unit,
+    onNavigateTo: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Banner explaining how to execute tasks
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.DirectionsWalk, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (isArabic)
+                        "إليك أهم 6 مهام يومية يحتاجها المعلم لإدارة دروسه، مع شرح الخطوات وإمكانية الذهاب المباشر لتنفيذها في التطبيق أو تجربتها هنا فوراً:"
+                    else
+                        "Here are the top 6 core tasks for teachers with step-by-step instructions and 1-tap shortcuts to the actual app screens:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
 
-                // Bottom Action Buttons
+        // =====================================================================
+        // TASK 1: CREATE A GROUP (إنشاء مجموعة دراسية)
+        // =====================================================================
+        TaskActionCard(
+            number = "1",
+            title = if (isArabic) "كيفية إنشاء مجموعة دراسية وتثبيت مواعيدها" else "How to Create a Study Group & Schedule",
+            badge = if (isArabic) "أساسي" else "Essential",
+            badgeColor = IndigoExam,
+            icon = Icons.Filled.Class,
+            whatIsIt = if (isArabic)
+                "المجموعة هي الحاوية الأساسية التي تضم طلابك، وتحدد الصف الدراسي، السنتر/القاعة، نظام المحاسبة (شهري أو بالحصة)، وأيام الحصص."
+            else
+                "A group organizes students by grade, pricing model (monthly or per session), venue/room, and weekly schedule days.",
+            steps = listOf(
+                if (isArabic) "اضغط على زر (+ إضافة مجموعة) من الشاشة الرئيسية أو افتح شاشة (المجموعات)." else "Tap (+ Add Group) from Dashboard or open Groups screen.",
+                if (isArabic) "أدخل اسم المجموعة، الصف الدراسي، والمكان/السنتر وقيمة الاشتراك." else "Enter group name, grade, venue, and monthly fee.",
+                if (isArabic) "حدد أيام الأسبوع وتوقيت الحصة لتثبيتها تلقائياً في جدول المواعيد." else "Select days and class time to auto-schedule into weekly calendar.",
+                if (isArabic) "اضغط (إضافة المجموعة والحصص) لحفظها في قاعدة البيانات فوراً." else "Tap (Add Group & Schedule) to save into database."
+            ),
+            directButtonText = if (isArabic) "🚀 خذني لشاشة المجموعات لنفّذ الآن" else "🚀 Open Groups Screen",
+            onDirectClick = { onNavigateTo(Screen.Groups.route) }
+        ) {
+            // Mini Sandbox for Task 1
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = if (isArabic) "🧪 تجربة سريعة: أنشئ مجموعة تجريبية بنقرة واحدة:" else "🧪 Quick Trial: Create sample group in 1 tap:",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = IndigoExam
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Previous Button
-                    if (currentStepIndex > 0) {
-                        OutlinedButton(
-                            onClick = { currentStepIndex-- },
+                    OutlinedTextField(
+                        value = demoGroupName,
+                        onValueChange = onDemoGroupNameChange,
+                        singleLine = true,
+                        label = { Text(if (isArabic) "اسم المجموعة" else "Group Name") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = onCreateDemoGroup,
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isDemoGroupCreated) EmeraldSuccess else IndigoExam),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(if (isDemoGroupCreated) (if (isArabic) "تم الحفظ ✓" else "Saved ✓") else (if (isArabic) "أنشئ الآن" else "Create"), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
+        // TASK 2: ADD STUDENTS & QR CODES (إضافة الطلاب وتوليد بطاقات الـ QR)
+        // =====================================================================
+        TaskActionCard(
+            number = "2",
+            title = if (isArabic) "كيفية إضافة الطلاب وتوليد بطاقات الـ QR وطباعتها" else "How to Add Students & Generate QR Cards",
+            badge = if (isArabic) "يومي" else "Daily",
+            badgeColor = EmeraldSuccess,
+            icon = Icons.Filled.PersonAdd,
+            whatIsIt = if (isArabic)
+                "تسجيل بيانات الطلاب، هواتف أولياء الأمور لتفعيل رسائل الواتساب، وتوليد كود باركود QR فريد لكل طالب لطباعة كارنيه العضوية."
+            else
+                "Save student profiles, parent phone numbers for WhatsApp alerts, and generate printable QR membership cards.",
+            steps = listOf(
+                if (isArabic) "افتح شاشة (الطلاب) واضغط على زر (+ إضافة طالب)." else "Open Students screen and tap (+ Add Student).",
+                if (isArabic) "أدخل اسم الطالب، هاتف الطالب، ورقم ولي الأمر (ضروري لرسائل المتابعة والغياب)." else "Enter student name, phone, and parent phone for WhatsApp alerts.",
+                if (isArabic) "اختر المجموعة الدراسية التابع لها الطالب." else "Select the assigned study group.",
+                if (isArabic) "اضغط حفظ لتوليد باركود QR فوراً، ويمكنك من صفحة الطالب الضغط على (طباعة كارنيه QR)." else "Save to generate QR code, and tap (Print QR ID) to export PDF."
+            ),
+            directButtonText = if (isArabic) "🚀 خذني لشاشة الطلاب لنفّذ الآن" else "🚀 Open Students Screen",
+            onDirectClick = { onNavigateTo(Screen.Students.route) }
+        ) {
+            // Mini Sandbox for Task 2
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = if (isArabic) "🧪 تجربة سريعة: سجّل طالب تجريبي وولد باركود QR له:" else "🧪 Quick Trial: Add sample student with QR:",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = EmeraldSuccess
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = demoStudentName,
+                        onValueChange = onDemoStudentNameChange,
+                        singleLine = true,
+                        label = { Text(if (isArabic) "اسم الطالب" else "Student Name") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = onCreateDemoStudent,
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isDemoStudentCreated) EmeraldSuccess else EmeraldSuccess),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(if (isDemoStudentCreated) (if (isArabic) "تم التسجيل ✓" else "Saved ✓") else (if (isArabic) "سجّل الآن" else "Add"), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
+        // TASK 3: ATTENDANCE & HOMEWORK PHOTO (رصد الحضور وتصوير الواجب)
+        // =====================================================================
+        TaskActionCard(
+            number = "3",
+            title = if (isArabic) "كيفية رصد الحضور بالباركود وتصوير كشكول الواجب" else "How to Mark Attendance & Photo Homework",
+            badge = if (isArabic) "سريع وذكي" else "Fast & Smart",
+            badgeColor = AmberGoldDark,
+            icon = Icons.Filled.CheckCircle,
+            whatIsIt = if (isArabic)
+                "تسجيل حضور المجموعة في ثوانٍ معدودة عبر مسح باركود بطاقة الطالب بكاميرا الهاتف، أو بلمسة واحدة يدوياً، مع إمكانية تصوير كشكول الواجب."
+            else
+                "Scan student QR cards with phone camera in seconds, or tap to toggle status with instant homework notebook camera capture.",
+            steps = listOf(
+                if (isArabic) "افتح شاشة (الحضور) واختر المجموعة والتاريخ المطلوب." else "Open Attendance screen and choose group and date.",
+                if (isArabic) "اضغط على زر (مسح QR بالكاميرا) لمسح بطاقات الطلاب واحداً تلو الآخر تلقائياً." else "Tap (Scan QR) for automatic ultra-fast attendance scanning.",
+                if (isArabic) "أو اضغط مباشرة على بطاقة الطالب لتغيير حالته (حاضر / غائب / متأخر)." else "Or tap student row to toggle (Present / Absent / Late).",
+                if (isArabic) "اضغط على أيقونة الكاميرا 📸 لالتقاط صورة الواجب وحفظها بملف الطالب." else "Tap 📸 camera icon to photograph homework notebook."
+            ),
+            directButtonText = if (isArabic) "🚀 خذني لشاشة الحضور والغياب" else "🚀 Open Attendance Screen",
+            onDirectClick = { onNavigateTo(Screen.Attendance.route) }
+        ) {
+            // Mini Sandbox for Task 3
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = if (isArabic) "🧪 جرب تبديل حالة الحضور بلمسة واحدة:" else "🧪 Test 1-tap attendance toggle:",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = AmberGoldDark
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        "present" to (if (isArabic) "حاضر ✔️" else "Present ✔️"),
+                        "late" to (if (isArabic) "متأخر ⏳" else "Late ⏳"),
+                        "absent" to (if (isArabic) "غائب ❌" else "Absent ❌")
+                    ).forEach { (statusKey, label) ->
+                        val isSel = demoAttendanceStatus == statusKey
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSel) when (statusKey) {
+                                "present" -> EmeraldSuccess
+                                "late" -> AmberGoldDark
+                                else -> CrimsonError
+                            } else MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
-                                .testTag("tour_prev_btn"),
-                            shape = RoundedCornerShape(12.dp)
+                                .clickable { onRecordDemoAttendance(statusKey) }
                         ) {
                             Text(
-                                text = L.previous(),
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                text = label,
+                                color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
+                }
+            }
+        }
 
-                    // Next / Finish Button
-                    Button(
-                        onClick = {
-                            if (currentStepIndex < totalSteps - 1) {
-                                currentStepIndex++
-                            } else {
-                                AppPreferencesManager.setHasSeenTour(true)
-                                onDismiss()
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(if (currentStepIndex > 0) 1.5f else 1f)
-                            .height(48.dp)
-                            .testTag("tour_next_finish_btn"),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (currentStepIndex == totalSteps - 1) EmeraldGreen else currentStep.color
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+        // =====================================================================
+        // TASK 4: WHATSAPP REPORTS & NOTIFICATIONS (رسائل الواتساب والتقارير)
+        // =====================================================================
+        TaskActionCard(
+            number = "4",
+            title = if (isArabic) "كيفية إرسال تقارير المتابعة والغياب لأولياء الأمور عبر WhatsApp" else "How to Send WhatsApp Reports to Parents",
+            badge = if (isArabic) "تواصل فوري" else "Instant Chat",
+            badgeColor = Color(0xFF25D366),
+            icon = Icons.Filled.Send,
+            whatIsIt = if (isArabic)
+                "إرسال رسائل آلية منسقة بضغطة زر واحدة لإبلاغ ولي الأمر بغياب الطالب، درجات الامتحانات الشهرية، أو تقييم الواجب والسلوك."
+            else
+                "1-click automated structured WhatsApp messaging to notify parents about absence, test scores, or monthly progress.",
+            steps = listOf(
+                if (isArabic) "من شاشة الحضور أو تفاصيل الطالب، اضغط على أيقونة (WhatsApp 💬)." else "From Attendance or Student Detail, tap WhatsApp 💬 icon.",
+                if (isArabic) "يتم توليد رسالة رسمية مخصصة باسم الطالب، التاريخ، والتفاصيل تلقائياً." else "A customized formal Arabic/English message is prepared automatically.",
+                if (isArabic) "يفتح التطبيق محادثة ولي الأمر مباشرة بدون الحاجة لحفظ رقمه في جهات الاتصال." else "Directly opens WhatsApp chat with parent without saving contact.",
+                if (isArabic) "يمكنك أيضاً إرسال تنبيه جماعي لكل طلاب المجموعة بضغطة واحدة." else "Bulk send announcements to whole group WhatsApp in 1 tap."
+            ),
+            directButtonText = if (isArabic) "🚀 خذني لتقارير الطلاب" else "🚀 Open Student Reports",
+            onDirectClick = { onNavigateTo(Screen.Reports.createRoute(0L)) }
+        )
+
+        // =====================================================================
+        // TASK 5: EXAMS & RANKING (الامتحانات ورصد الدرجات وترتيب الأوائل)
+        // =====================================================================
+        TaskActionCard(
+            number = "5",
+            title = if (isArabic) "كيفية إنشاء امتحان ورصد الدرجات واستخراج كشف الأوائل" else "How to Record Exams & Rank Top Students",
+            badge = if (isArabic) "تقييم" else "Assessment",
+            badgeColor = Color(0xFF9333EA),
+            icon = Icons.Filled.Assignment,
+            whatIsIt = if (isArabic)
+                "تسجيل الامتحانات الشهرية والشيتات الأسبوعية، رصد الدرجة العظمى والصغرى، وتوليد كشف الأوائل ولوحة الشرف تلقائياً."
+            else
+                "Manage monthly exams and weekly quizzes, score limits, top ranking leaderboard, and export honor roll certificates.",
+            steps = listOf(
+                if (isArabic) "افتح شاشة (الامتحانات) واضغط (+ إضافة امتحان جديد)." else "Open Exams screen and tap (+ Add New Exam).",
+                if (isArabic) "حدد اسم الامتحان، المجموعة، والدرجة النهائية (مثال 50 درجة)." else "Set exam title, target group, and max score (e.g. 50).",
+                if (isArabic) "ادخل درجات الطلاب بسهولة في الجدول التفاعلي السريع." else "Enter student marks quickly in the interactive grid.",
+                if (isArabic) "اضغط على (لوحة الشرف) لتوليد شهادات تقدير PDF للطلاب المتميزين." else "Tap (Honor Roll) to generate PDF certificates for top achievers."
+            ),
+            directButtonText = if (isArabic) "🚀 خذني لشاشة الامتحانات" else "🚀 Open Exams Screen",
+            onDirectClick = { onNavigateTo(Screen.Exams.route) }
+        )
+
+        // =====================================================================
+        // TASK 6: TEACHER TOOLS (السبورة التفاعلية + حاسبة Casio + المذكرات)
+        // =====================================================================
+        TaskActionCard(
+            number = "6",
+            title = if (isArabic) "استخدام أدوات المعلم (السبورة، حاسبة Casio fx-991ES، وبنك الأسئلة)" else "How to Use Teacher Tools (Casio Calculator, Whiteboard)",
+            badge = if (isArabic) "أدوات ذكية" else "Smart Suite",
+            badgeColor = NavyPrimary,
+            icon = Icons.Filled.AutoFixHigh,
+            whatIsIt = if (isArabic)
+                "حقيبة متكاملة للمعلم داخل الحصة: سبورة تفاعلية للشرح الهندسي، محاكي كامل لآلة Casio fx-991ES العلمية، مسجل صوتي للحصص، وعارض مذكرات PDF."
+            else
+                "All-in-one in-class utility suite: geometric whiteboard, realistic Casio fx-991ES calculator, audio session recorder, and PDF viewer.",
+            steps = listOf(
+                if (isArabic) "افتح تبويب (أدوات المعلم) من شريط التنقل السفلي." else "Open (Teacher Tools) tab from bottom navigation bar.",
+                if (isArabic) "اختر (الآلة الحاسبة العلمية Casio) لإجراء الحسابات المعقدة والكسور." else "Choose (Scientific Calculator) for complex math in class.",
+                if (isArabic) "اختر (السبورة الهندسية) للرسم والشرح التفاعلي على الشاشات الذكية." else "Select (Engineering Whiteboard) to draw and explain concepts.",
+                if (isArabic) "افتح (المذكرات والكتب) لاستعراض شيتات الشرح ومشاركتها مع الطلاب." else "Open (Study Files) to view and share curriculum handouts."
+            ),
+            directButtonText = if (isArabic) "🚀 خذني لأدوات المعلم الآن" else "🚀 Open Teacher Tools",
+            onDirectClick = { onNavigateTo(Screen.TeacherTools.createRoute()) }
+        )
+    }
+}
+
+// =============================================================================
+// TAB 2: APP MODULES ARCHITECTURE GUIDE (خريطة وشرح جميع مكونات التطبيق)
+// =============================================================================
+@Composable
+private fun AppModulesGuideTab(
+    isArabic: Boolean,
+    onNavigateTo: (String) -> Unit
+) {
+    val modules = listOf(
+        AppModuleItem(
+            name = if (isArabic) "لوحة التحكم الرئيسية (Dashboard)" else "Dashboard & Analytics",
+            icon = Icons.Filled.Dashboard,
+            color = Color(0xFF1E88E5),
+            route = Screen.Dashboard.route,
+            description = if (isArabic)
+                "مركز القيادة اليومي: يعرض إجمالي الطلاب، حصص اليوم القادمة، نسبة الحضور الأسبوعية، المتأخرات المالية، وشريط الإجراءات السريعة الفورية."
+            else
+                "Daily command center: total students, today's classes, attendance rate, unpaid dues, and instant quick action shortcuts."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "المجموعات والفصول (Groups)" else "Groups & Classes",
+            icon = Icons.Filled.Class,
+            color = IndigoExam,
+            route = Screen.Groups.route,
+            description = if (isArabic)
+                "تنظيم المجموعات الدراسية بحسب المرحلة (ابتدائي، إعدادي، ثانوي)، تحديد أسعار الاشتراكات (شهري / بالحصة)، وتعيين السنتر والقاعة."
+            else
+                "Manage groups by academic grade, billing model, pricing, venues, and weekly class times."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "الطلاب وسجل الدرجات (Students)" else "Students Directory",
+            icon = Icons.Filled.People,
+            color = EmeraldSuccess,
+            route = Screen.Students.route,
+            description = if (isArabic)
+                "قاعدة بيانات شاملة لكل طالب: رقم الطالب وولي الأمر، كود باركود QR، سجل الغياب والدرجات، ملاحظات المعلم، وتصدير بطاقات العضوية."
+            else
+                "Complete student database: contact info, parent phone, QR barcode cards, attendance history, and notes."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "الجدول الأسبوعي والمواعيد (Schedule)" else "Weekly Timetable",
+            icon = Icons.Filled.CalendarMonth,
+            color = NavyPrimary,
+            route = Screen.Schedule.route,
+            description = if (isArabic)
+                "جدول تفاعلي زمني لتنظيم الحصص بحسب أيام الأسبوع والمراكز التعليمية مع تنبيهات ذكية لمنع أي تعارض في المواعيد أو القاعات."
+            else
+                "Interactive weekly timetable with conflict detection across study centers and rooms."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "الحضور والغياب والباركود (Attendance)" else "Smart Attendance",
+            icon = Icons.Filled.CheckCircle,
+            color = AmberGoldDark,
+            route = Screen.Attendance.route,
+            description = if (isArabic)
+                "رصد الحضور والغياب فائق السرعة عبر كاميرا مسح الباركود، أو التبديل اليدوي، مع تصوير كشكول الواجب ورصد تقييم حل الواجب."
+            else
+                "Ultra-fast QR scanner camera attendance, manual 1-tap toggling, and notebook homework photo capture."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "الامتحانات والشيتات (Exams)" else "Exams & Quizzes",
+            icon = Icons.Filled.Assignment,
+            color = Color(0xFF9333EA),
+            route = Screen.Exams.route,
+            description = if (isArabic)
+                "إدارة الامتحانات وتحديد الدرجات العظمى، رصد الدرجات لطلاب المجموعة، استخراج كشف الأوائل، وتوليد تقارير الأداء بصيغة PDF."
+            else
+                "Create exams, grade assignments, generate top student leaderboards, and export PDF score sheets."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "المالية والحسابات (Finance)" else "Finance & Billing",
+            icon = Icons.Filled.AccountBalanceWallet,
+            color = Color(0xFF047857),
+            route = Screen.Finance.route,
+            description = if (isArabic)
+                "تتبع تحصيل اشتراكات الطلاب، كشف المتأخرات المالية، تسجيل مصروفات السنتر والطباعة، وإحصائيات الدخل الشهري بدقة."
+            else
+                "Track student fee payments, unpaid balances, printing/center expenses, and monthly financial summaries."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "أدوات المعلم والحاسبة العلمية (Teacher Tools)" else "Teacher Smart Suite",
+            icon = Icons.Filled.AutoFixHigh,
+            color = Color(0xFFD97706),
+            route = Screen.TeacherTools.createRoute(),
+            description = if (isArabic)
+                "الآلة الحاسبة العلمية Casio fx-991ES، السبورة الهندسية التفاعلية، مسجل الحصص الصوتي، عارض ملفات PDF والمذكرات المدرسية."
+            else
+                "Casio fx-991ES scientific calculator, engineering interactive whiteboard, audio recorder, and PDF curriculum viewer."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "الشهادات والتقارير الشهرية (Certificates & Reports)" else "Certificates & Reports",
+            icon = Icons.Filled.WorkspacePremium,
+            color = Color(0xFFE11D48),
+            route = Screen.Certificates.createRoute(0L),
+            description = if (isArabic)
+                "توليد شهادات تقدير ملونة جاهزة للطباعة، وتقارير أداء شاملة لكل طالب لمشاركتها مع أولياء الأمور عبر WhatsApp."
+            else
+                "Export colorful printable student appreciation certificates and detailed monthly PDF progress cards."
+        ),
+        AppModuleItem(
+            name = if (isArabic) "أماكن وقاعات الدروس (Venues)" else "Study Venues & Rooms",
+            icon = Icons.Filled.LocationCity,
+            color = Color(0xFF0284C7),
+            route = Screen.Venues.route,
+            description = if (isArabic)
+                "دليل السناتر والمراكز التعليمية والقاعات، تتبع نسب السنتر ونظام التأجير، وأرقام تواصل مسؤولي السناتر."
+            else
+                "Manage education centers, classroom rooms, commission rates, and center manager contacts."
+        )
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = if (isArabic) "خريطة أقسام وشاشات التطبيق الكاملة:" else "Complete App Architecture & Navigation Modules:",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        modules.forEach { module ->
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                border = BorderStroke(1.dp, module.color.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (currentStepIndex == totalSteps - 1) L.finishTour() else L.next(),
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = module.color.copy(alpha = 0.15f),
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(module.icon, contentDescription = null, tint = module.color, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = module.name,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
-                        )
+                        }
+
+                        Button(
+                            onClick = { onNavigateTo(module.route) },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = module.color)
+                        ) {
+                            Text(if (isArabic) "فتح ↗" else "Open ↗", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
+
+                    Text(
+                        text = module.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
                 }
             }
         }
     }
 }
 
-/**
- * Hands-on interactive playground for each tour step allowing the teacher to test features live
- */
+// =============================================================================
+// TAB 3: PRO TIPS & BEST PRACTICES (حيل وأسرار المعلم المحترف)
+// =============================================================================
 @Composable
-private fun InteractiveStepPlayground(
-    stepIndex: Int,
+private fun ProTipsGuideTab(
     isArabic: Boolean,
-    accentColor: Color
+    onNavigateTo: (String) -> Unit
 ) {
-    Surface(
+    val tips = listOf(
+        ProTipItem(
+            title = if (isArabic) "💡 مسح باركود الـ QR بدون إنترنت" else "💡 Offline QR Attendance Scanning",
+            text = if (isArabic)
+                "تطبيق المعلم يعمل بنسبة 100% بدون اتصال إنترنت. يمكنك طباعة بطاقات الـ QR للطلاب واستخدام كاميرا التطبيق لمسح الحضور حتى داخل القاعات المعزولة عن الشبكة."
+            else
+                "The app is 100% offline-first. You can scan student QR cards and record full attendance anywhere without needing Wi-Fi or mobile data."
+        ),
+        ProTipItem(
+            title = if (isArabic) "📸 تصوير كشكول الواجب وتوثيق المتابعة" else "📸 Photographing Homework Notebooks",
+            text = if (isArabic)
+                "عند رصد الواجب، اضغط على زر الكاميرا بجانب اسم الطالب. يلتقط التطبيق صورة سريعة للواجب ويربطها بتاريخ الحصة، لتقديم دليل موثق لولي الأمر في حال اعتراضه."
+            else
+                "When checking homework, tap the camera icon to snap a quick photo. It is automatically saved and attached to the student session record."
+        ),
+        ProTipItem(
+            title = if (isArabic) "💬 فتح محادثات واتساب بدون حفظ الرقم" else "💬 1-Tap Direct WhatsApp Messaging",
+            text = if (isArabic)
+                "لا داعي لحفظ مئات أرقام أولياء الأمور في جهات اتصال هاتفك. زر واتساب في التطبيق يفتح المحادثة مباشرة مع رسالة مجهزة ومخصصة باسم الطالب وحالته."
+            else
+                "No need to clutter your personal phone contacts with hundreds of parent numbers. Tap WhatsApp in-app to start direct chat with pre-filled message."
+        ),
+        ProTipItem(
+            title = if (isArabic) "🧮 شاشة الآلة الحاسبة Casio fx-991ES أثناء الحصة" else "🧮 Full Casio fx-991ES Natural Display in Class",
+            text = if (isArabic)
+                "افتح شاشة أدوات المعلم واختر الآلة الحاسبة العلمية. صُممت لتحاكي بدقة أزرار وشاشة Casio الأصلية لحل المعادلات والكسور والتفاضل أمام الطلاب بسهولة."
+            else
+                "Access the realistic Casio fx-991ES calculator from Teacher Tools to solve fractions, quadratic equations, and complex calculus on screen."
+        ),
+        ProTipItem(
+            title = if (isArabic) "🛡️ حفظ نسخة احتياطية من بياناتك (Backup)" else "🛡️ 1-Click Database Backup & Restore",
+            text = if (isArabic)
+                "من شاشة الإعدادات، يمكنك تصدير نسخة احتياطية مشفرة بضغطة زر وحفظها على Google Drive أو إرسالها لبريدك، لاستعادتها فوراً على أي هاتف جديد."
+            else
+                "From Settings -> Backup, export a safe database backup to Google Drive or email to safely restore all students and grades onto any new device."
+        )
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = if (isArabic) "حيل ونصائح لتسريع عملك اليومي كمعلم محترف:" else "Pro Tips to Accelerate Your Daily Teaching Workflow:",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        tips.forEach { tip ->
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = AmberGoldContainer.copy(alpha = 0.3f)),
+                border = BorderStroke(1.dp, AmberGold.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = tip.title,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = AmberGoldDark
+                    )
+                    Text(
+                        text = tip.text,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+// =============================================================================
+// HELPER COMPONENT: TASK ACTION CARD
+// =============================================================================
+@Composable
+private fun TaskActionCard(
+    number: String,
+    title: String,
+    badge: String,
+    badgeColor: Color,
+    icon: ImageVector,
+    whatIsIt: String,
+    steps: List<String>,
+    directButtonText: String,
+    onDirectClick: () -> Unit,
+    sandboxContent: (@Composable () -> Unit)? = null
+) {
+    Card(
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.5.dp, accentColor.copy(alpha = 0.35f)),
-        tonalElevation = 2.dp,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.2.dp, badgeColor.copy(alpha = 0.4f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
+            modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Filled.TouchApp,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Surface(
+                        shape = CircleShape,
+                        color = badgeColor,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(number, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isArabic) "تجربة تفاعلية مباشرة (اضغط وجرب الآن):" else "Interactive Hands-on Trial:",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                        color = accentColor
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = accentColor.copy(alpha = 0.15f)
+                    color = badgeColor.copy(alpha = 0.15f)
                 ) {
                     Text(
-                        text = if (isArabic) "حي وتفاعلي ⚡" else "Live Tryout ⚡",
-                        color = accentColor,
-                        fontSize = 10.sp,
+                        text = badge,
+                        color = badgeColor,
                         fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
             }
 
-            when (stepIndex) {
-                0 -> {
-                    // Step 1: Dashboard Interactive Trial
-                    var quickActionTapped by remember { mutableStateOf<String?>(null) }
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Description / What is it
+            Text(
+                text = whatIsIt,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp
+            )
+
+            // Steps Checklist
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = if (L.isArabic()) "📌 خطوات التنفيذ بالتفصيل:" else "📌 Step-by-Step Instructions:",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                steps.forEachIndexed { idx, stepText ->
+                    Row(verticalAlignment = Alignment.Top) {
                         Text(
-                            text = if (isArabic) "جرب الضغط على أحد أزرار الإجراء السريع للوحة التحكم:" else "Tap any quick action button below:",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                            FilledTonalButton(
-                                onClick = { quickActionTapped = if (isArabic) "تم فتح تحضير الحضور بنجاح! ⚡" else "Attendance Opened!" },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Filled.FactCheck, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (isArabic) "حضور اليوم" else "Attendance", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                            FilledTonalButton(
-                                onClick = { quickActionTapped = if (isArabic) "تم فتح نافذة إضافة طالب جديد! ➕" else "New Student Dialog Opened!" },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Filled.PersonAdd, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (isArabic) "طالب جديد" else "New Student", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        if (quickActionTapped != null) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = EmeraldSuccessContainer,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = quickActionTapped!!,
-                                    color = EmeraldSuccess,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(8.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                }
-                1 -> {
-                    // Step 2: Students & WhatsApp Interactive Trial
-                    var isQrVisible by remember { mutableStateOf(false) }
-                    var whatsAppSent by remember { mutableStateOf(false) }
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text("محمد أحمد علي", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Text("الصف الثالث الثانوي - مجموعة السبت", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    IconButton(
-                                        onClick = { isQrVisible = !isQrVisible },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Filled.QrCode2, contentDescription = null, tint = NavyPrimary)
-                                    }
-                                    IconButton(
-                                        onClick = { whatsAppSent = true },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Filled.Send, contentDescription = null, tint = Color(0xFF25D366))
-                                    }
-                                }
-                            }
-                        }
-                        if (isQrVisible) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFF0F172A),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "||| ||||| |||| ||||| STU-2026-0042 [QR CODE]",
-                                    fontFamily = FontFamily.Monospace,
-                                    color = Color(0xFF38BDF8),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(8.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                        if (whatsAppSent) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFDCFCE7),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = if (isArabic) "💬 مرحباً ولي أمر الطالب محمد، نود إبلاغكم بحصوله على 10/10 في اختبار اليوم 🌟" else "WhatsApp message preview sent!",
-                                    color = Color(0xFF166534),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(8.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                2 -> {
-                    // Step 3: Groups & Stages Interactive Trial
-                    var selectedStageIndex by remember { mutableIntStateOf(2) } // Secondary
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                            listOf("🎒 ابتدائي", "📘 إعدادي", "🎓 ثانوي").forEachIndexed { index, title ->
-                                val isSelected = selectedStageIndex == index
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) Color(0xFF7C3AED) else MaterialTheme.colorScheme.surfaceVariant,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { selectedStageIndex = index }
-                                ) {
-                                    Text(
-                                        text = title,
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(vertical = 6.dp),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = when (selectedStageIndex) {
-                                        0 -> "مجموعة المتفوقين (الصف الخامس) - 24 طالب"
-                                        1 -> "مجموعة الأبطال (الصف الثاني الإعدادي) - 30 طالب"
-                                        else -> "مجموعة النخبة (الثالث الثانوي) - 35 طالب"
-                                    },
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
-                                Text("250 ج.م", fontWeight = FontWeight.Black, color = Color(0xFF7C3AED), fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-                3 -> {
-                    // Step 4: Schedule Interactive Trial
-                    var selectedDay by remember { mutableStateOf("السبت") }
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            listOf("السبت", "الأحد", "الاثنين", "الثلاثاء").forEach { day ->
-                                val isChosen = selectedDay == day
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = if (isChosen) Color(0xFF059669) else MaterialTheme.colorScheme.surfaceVariant,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { selectedDay = day }
-                                ) {
-                                    Text(
-                                        text = day,
-                                        color = if (isChosen) Color.White else MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(vertical = 6.dp),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFECFDF5),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text("حصة الرياضيات (سنتر الأوائل)", fontWeight = FontWeight.Bold, color = Color(0xFF065F46), fontSize = 12.sp)
-                                    Text("04:00 م - 06:00 م ($selectedDay)", fontSize = 11.sp, color = Color(0xFF047857))
-                                }
-                                Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF059669)) {
-                                    Text("مؤكدة ⏰", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(6.dp, 2.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-                4 -> {
-                    // Step 5: Attendance Interactive Trial
-                    var attendanceStatus by remember { mutableStateOf("present") }
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = if (isArabic) "جرّب تغيير حالة حضور الطالب بضغطة زر:" else "Tap a status to mark attendance:",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                            // Present
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (attendanceStatus == "present") EmeraldSuccessContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                border = BorderStroke(if (attendanceStatus == "present") 1.5.dp else 0.dp, EmeraldSuccess),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { attendanceStatus = "present" }
-                            ) {
-                                Text(
-                                    text = "حاضر ✔️",
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (attendanceStatus == "present") EmeraldSuccess else MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(vertical = 8.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                            // Late
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (attendanceStatus == "late") AmberGoldContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                border = BorderStroke(if (attendanceStatus == "late") 1.5.dp else 0.dp, AmberGoldDark),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { attendanceStatus = "late" }
-                            ) {
-                                Text(
-                                    text = "متأخر ⏳",
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (attendanceStatus == "late") AmberGoldDark else MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(vertical = 8.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                            // Absent
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (attendanceStatus == "absent") CrimsonErrorContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                border = BorderStroke(if (attendanceStatus == "absent") 1.5.dp else 0.dp, CrimsonError),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { attendanceStatus = "absent" }
-                            ) {
-                                Text(
-                                    text = "غائب ❌",
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (attendanceStatus == "absent") CrimsonError else MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(vertical = 8.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                }
-                5 -> {
-                    // Step 6: Homework Scanner Interactive Trial
-                    var homeworkState by remember { mutableStateOf("full") }
-                    var photoTaken by remember { mutableStateOf(false) }
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
-                                listOf("full" to "كامل 💯", "partial" to "ناقص ⚠️", "none" to "لم يحل ❌").forEach { (st, label) ->
-                                    val isCur = homeworkState == st
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (isCur) Color(0xFFD97706) else MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable { homeworkState = st }
-                                    ) {
-                                        Text(
-                                            text = label,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isCur) Color.White else MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.padding(vertical = 6.dp),
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            IconButton(
-                                onClick = { photoTaken = !photoTaken },
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(Color(0xFFFEF3C7), RoundedCornerShape(8.dp))
-                            ) {
-                                Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = Color(0xFFD97706))
-                            }
-                        }
-                        if (photoTaken) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFFEF3C7),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = if (isArabic) "📸 تم التقاط وحفظ صورة صفحة الواجب بنجاح!" else "Homework photo captured successfully!",
-                                    color = Color(0xFF92400E),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(8.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                }
-                6 -> {
-                    // Step 7: Question Bank Interactive Trial
-                    var chosenOption by remember { mutableStateOf<String?>(null) }
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "سؤال تجريبي: ما هي قيمة √144 + 5² ؟",
+                            text = "${idx + 1}. ",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = badgeColor,
+                            fontSize = 11.sp
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                            listOf("أ) 37", "ب) 29", "ج) 49", "د) 17").forEach { opt ->
-                                val isSelected = chosenOption == opt
-                                val isCorrect = opt.startsWith("أ")
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = when {
-                                        isSelected && isCorrect -> EmeraldSuccessContainer
-                                        isSelected && !isCorrect -> CrimsonErrorContainer
-                                        else -> MaterialTheme.colorScheme.surfaceVariant
-                                    },
-                                    border = BorderStroke(
-                                        if (isSelected) 1.5.dp else 0.dp,
-                                        if (isSelected && isCorrect) EmeraldSuccess else CrimsonError
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { chosenOption = opt }
-                                ) {
-                                    Text(
-                                        text = opt,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = when {
-                                            isSelected && isCorrect -> EmeraldSuccess
-                                            isSelected && !isCorrect -> CrimsonError
-                                            else -> MaterialTheme.colorScheme.onSurface
-                                        },
-                                        modifier = Modifier.padding(vertical = 6.dp),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                        if (chosenOption != null) {
-                            Text(
-                                text = if (chosenOption!!.startsWith("أ")) "إجابة صحيحة! أحسنت 🎯 (12 + 25 = 37)" else "إجابة غير صحيحة، جرّب الخيار (أ)",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (chosenOption!!.startsWith("أ")) EmeraldSuccess else CrimsonError
-                            )
-                        }
+                        Text(
+                            text = stepText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp
+                        )
                     }
                 }
-                7 -> {
-                    // Step 8: Finance Interactive Trial
-                    var collectedAmount by remember { mutableIntStateOf(150) }
-                    val totalFee = 300
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("اشتراك الطالب: $totalFee ج.م", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text("المدفوع: $collectedAmount ج.م | المتبقي: ${totalFee - collectedAmount} ج.م", fontSize = 11.sp, color = AmberGoldDark, fontWeight = FontWeight.Bold)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                            Button(
-                                onClick = { collectedAmount = totalFee },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AmberGoldDark)
-                            ) {
-                                Text("تسجيل دفع كامل (300 ج.م)", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                            OutlinedButton(
-                                onClick = { collectedAmount = 150 },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("تسجيل نصف المبلغ (150)", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-                8 -> {
-                    // Step 9: Casio Scientific Calculator Interactive Trial
-                    var casioLcd by remember { mutableStateOf("sin(30)") }
-                    var casioResult by remember { mutableStateOf("0.5") }
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFF8E9F88),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(casioLcd, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 12.sp)
-                                Text("= $casioResult", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, color = Color(0xFF0F172A), fontSize = 14.sp)
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                            listOf("√144" to "12", "5²" to "25", "sin(30)" to "0.5", "log(100)" to "2").forEach { (exp, res) ->
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF1E242B),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable {
-                                            casioLcd = exp
-                                            casioResult = res
-                                        }
-                                ) {
-                                    Text(
-                                        text = exp,
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(vertical = 6.dp),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                9 -> {
-                    // Step 10: Backup & PIN Security Interactive Trial
-                    var pinCode by remember { mutableStateOf("") }
-                    val isUnlocked = pinCode == "1234"
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (isUnlocked) "تم إلغاء القفل بنجاح! 🔓 (بياناتك آمنة)" else "أدخل الرمز التجريبي (1 2 3 4):",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isUnlocked) EmeraldSuccess else MaterialTheme.colorScheme.onSurface
-                            )
-                            TextButton(onClick = { pinCode = "" }) {
-                                Text("مسح", fontSize = 11.sp)
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                            listOf("1", "2", "3", "4").forEach { digit ->
-                                Button(
-                                    onClick = { if (pinCode.length < 4) pinCode += digit },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
-                                ) {
-                                    Text(digit, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
-                            }
-                        }
-                    }
-                }
+            }
+
+            // Optional Sandbox Trial
+            sandboxContent?.invoke()
+
+            // Direct Go-To Button
+            Button(
+                onClick = onDirectClick,
+                colors = ButtonDefaults.buttonColors(containerColor = badgeColor),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.Launch, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(directButtonText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
     }
 }
+
+private data class AppModuleItem(
+    val name: String,
+    val icon: ImageVector,
+    val color: Color,
+    val route: String,
+    val description: String
+)
+
+private data class ProTipItem(
+    val title: String,
+    val text: String
+)

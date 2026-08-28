@@ -176,15 +176,19 @@ class AttendanceViewModel(private val repository: TeacherPlannerRepository) : Vi
         )
     }
 
-    fun saveAttendance(onSaved: () -> Unit) {
+    fun saveAttendance(context: android.content.Context? = null, onSaved: () -> Unit) {
         viewModelScope.launch {
+            val currentGroup = _uiState.value.groups.firstOrNull { it.id == _uiState.value.selectedGroupId }
+            val groupName = currentGroup?.name ?: "المجموعة"
+            val selectedDate = _uiState.value.selectedDate
+
             val entities = _uiState.value.studentsAttendanceList.map {
                 AttendanceEntity(
                     id = it.attendanceId,
                     studentId = it.student.id,
                     sessionId = 0L,
                     groupId = _uiState.value.selectedGroupId,
-                    date = _uiState.value.selectedDate,
+                    date = selectedDate,
                     status = it.status,
                     homeworkStatus = it.homeworkStatus,
                     note = if (_uiState.value.sessionHomework.isNotBlank() && it.note.isBlank()) {
@@ -193,6 +197,44 @@ class AttendanceViewModel(private val repository: TeacherPlannerRepository) : Vi
                 )
             }
             repository.insertAllAttendance(entities)
+
+            // Ensure Session record is stored in database
+            if (_uiState.value.selectedGroupId != 0L) {
+                try {
+                    val sessionEntity = SessionEntity(
+                        groupId = _uiState.value.selectedGroupId,
+                        date = selectedDate,
+                        day = currentGroup?.sessionDays?.split(",")?.firstOrNull()?.trim() ?: "حصة مسجلة",
+                        time = currentGroup?.sessionTime ?: "16:00",
+                        completed = true,
+                        term = currentGroup?.currentTerm ?: "الترم الأول",
+                        homeworkTitle = _uiState.value.sessionHomework,
+                        homeworkNotes = _uiState.value.sessionHomework,
+                        note = _uiState.value.sessionTopic
+                    )
+                    repository.insertSession(sessionEntity)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            // Auto-create session folder in DOCUMENTS/TEACHER HACKER/[Date - GroupName] and save summary report
+            if (context != null) {
+                try {
+                    com.example.util.TeacherHackerDirectoryManager.saveSessionSummaryReport(
+                        context = context,
+                        group = currentGroup,
+                        date = selectedDate,
+                        attendanceList = _uiState.value.studentsAttendanceList,
+                        topic = _uiState.value.sessionTopic,
+                        homework = _uiState.value.sessionHomework,
+                        notes = "تم تسجيل الحضور بتاريخ $selectedDate"
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
             _uiState.value = _uiState.value.copy(isSavedSuccess = true)
             onSaved()
         }

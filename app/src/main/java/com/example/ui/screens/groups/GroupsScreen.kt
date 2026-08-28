@@ -248,7 +248,7 @@ fun GroupsScreen(
             venues = state.venues,
             onAddNewVenue = { venue, onSaved -> viewModel.addNewVenue(venue, onSaved) },
             onDismiss = { showAddDialog = false },
-            onSave = { viewModel.addOrUpdateGroup(it) }
+            onSaveWithSessions = { group, sessions -> viewModel.addOrUpdateGroup(group, sessions) }
         )
     }
 
@@ -258,7 +258,7 @@ fun GroupsScreen(
             venues = state.venues,
             onAddNewVenue = { venue, onSaved -> viewModel.addNewVenue(venue, onSaved) },
             onDismiss = { groupToEdit = null },
-            onSave = { viewModel.addOrUpdateGroup(it) }
+            onSaveWithSessions = { updatedGroup, sessions -> viewModel.addOrUpdateGroup(updatedGroup, sessions) }
         )
     }
 

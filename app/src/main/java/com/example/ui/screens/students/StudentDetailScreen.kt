@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,6 +48,7 @@ fun StudentDetailScreen(
     onNavigateToCertificateDesigner: (Long) -> Unit,
     onNavigateToHomeworkScanner: ((Long) -> Unit)? = null,
     onOpenHomeworkInPdfViewer: ((String, String) -> Unit)? = null,
+    onNavigateToGroup: ((Long) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -174,11 +176,35 @@ fun StudentDetailScreen(
                                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
-                                    Text(
-                                        text = "${details.group?.name ?: "بدون مجموعة"} • ${details.student.grade}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                                    )
+                                    if (details.group != null && onNavigateToGroup != null) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                            modifier = Modifier
+                                                .padding(top = 4.dp)
+                                                .clickable { onNavigateToGroup(details.group.id) }
+                                                .testTag("student_group_link")
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(Icons.Filled.Groups, contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(14.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "${details.group.name} • ${details.student.grade} ➔",
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                                    color = NavyPrimary
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Text(
+                                            text = "${details.group?.name ?: "بدون مجموعة"} • ${details.student.grade}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                                        )
+                                    }
                                 }
                                 StatusBadge(status = details.student.status)
                             }

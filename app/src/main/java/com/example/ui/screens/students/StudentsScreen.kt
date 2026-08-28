@@ -255,13 +255,32 @@ fun StudentsScreen(
                                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = NavyPrimaryContainer,
+                                                    border = androidx.compose.foundation.BorderStroke(0.5.dp, NavyPrimary.copy(alpha = 0.3f))
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Icon(Icons.Filled.Groups, contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(12.dp))
+                                                        Spacer(modifier = Modifier.width(3.dp))
+                                                        Text(
+                                                            text = groupName,
+                                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                                            color = NavyPrimary
+                                                        )
+                                                    }
+                                                }
                                                 if (student.isExempt) {
                                                     Spacer(modifier = Modifier.width(6.dp))
                                                     Text("منحة/إعفاء", style = MaterialTheme.typography.labelSmall, color = EmeraldSuccess)
                                                 }
                                             }
                                             Text(
-                                                text = "$groupName • ${student.grade} • كود: ${student.barcodeCode.ifEmpty { "STD-${student.id}" }}",
+                                                text = "${student.grade} • كود: ${student.barcodeCode.ifEmpty { "STD-${student.id}" }}",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )

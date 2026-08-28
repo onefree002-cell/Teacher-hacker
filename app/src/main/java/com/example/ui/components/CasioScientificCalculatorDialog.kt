@@ -105,12 +105,13 @@ fun CasioScientificCalculatorDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFF334155),
+                                color = Color(0xFF1E293B),
+                                border = BorderStroke(1.dp, Color(0xFF0284C7)),
                                 modifier = Modifier.padding(horizontal = 2.dp)
                             ) {
                                 Text(
-                                    text = "fx-991ES PLUS",
-                                    color = Color(0xFFE2E8F0),
+                                    text = "CLASSWIZ fx-991EX",
+                                    color = Color(0xFF38BDF8),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)

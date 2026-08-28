@@ -58,6 +58,7 @@ fun AttendanceScreen(
     viewModel: AttendanceViewModel,
     onNavigateBack: (() -> Unit)? = null,
     onNavigateHome: (() -> Unit)? = null,
+    onNavigateToGroup: ((Long) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -85,6 +86,7 @@ fun AttendanceScreen(
     var homeworkNotes by remember { mutableStateOf("") }
     var homeworkTopic by remember { mutableStateOf("") }
     val capturedHomeworkBitmaps = remember { mutableStateListOf<Bitmap>() }
+    var showCamScannerDialog by remember { mutableStateOf(false) }
     var generatedPdfFile by remember { mutableStateOf<File?>(null) }
     var showPdfSuccessDialog by remember { mutableStateOf(false) }
     var isGeneratingPdf by remember { mutableStateOf(false) }
@@ -196,9 +198,9 @@ fun AttendanceScreen(
                         }
                         Button(
                             onClick = {
-                                viewModel.saveAttendance {
+                                viewModel.saveAttendance(context) {
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("تم حفظ سجل الحضور والغياب بنجاح 💾")
+                                        snackbarHostState.showSnackbar("تم حفظ سجل الحضور والغياب وملخص الحصة في مجلد DOCUMENTS/TEACHER HACKER 💾")
                                     }
                                 }
                             },
@@ -209,7 +211,7 @@ fun AttendanceScreen(
                         ) {
                             Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("حفظ الحضور", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("حفظ الحضور والتقرير", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
                     }
                 }
@@ -383,34 +385,84 @@ fun AttendanceScreen(
                                     .padding(horizontal = 14.dp, vertical = 4.dp)
                             ) {
                                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    // Group Selector
-                                    ExposedDropdownMenuBox(
-                                        expanded = groupDropdownExpanded,
-                                        onExpandedChange = { groupDropdownExpanded = it }
+                                    // Group Selector Row with Go To Group Action
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        OutlinedTextField(
-                                            value = if (currentGroup != null) "${currentGroup.name} (${L.localizedGrade(currentGroup.grade)})" else "اختر المجموعة الدراسية",
-                                            onValueChange = {},
-                                            readOnly = true,
-                                            label = { Text("المجموعة الدراسية", fontWeight = FontWeight.Bold) },
-                                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = groupDropdownExpanded) },
-                                            modifier = Modifier
-                                                .menuAnchor()
-                                                .fillMaxWidth()
-                                                .testTag("attendance_group_picker")
-                                        )
-                                        ExposedDropdownMenu(
-                                            expanded = groupDropdownExpanded,
-                                            onDismissRequest = { groupDropdownExpanded = false }
-                                        ) {
-                                            state.groups.forEach { g ->
-                                                DropdownMenuItem(
-                                                    text = { Text("${g.name} (${L.localizedGrade(g.grade)})") },
-                                                    onClick = {
-                                                        viewModel.onGroupSelected(g.id)
-                                                        groupDropdownExpanded = false
-                                                    }
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            ExposedDropdownMenuBox(
+                                                expanded = groupDropdownExpanded,
+                                                onExpandedChange = { groupDropdownExpanded = it }
+                                            ) {
+                                                OutlinedTextField(
+                                                    value = if (currentGroup != null) "${currentGroup.name} (${L.localizedGrade(currentGroup.grade)})" else "اختر المجموعة الدراسية",
+                                                    onValueChange = {},
+                                                    readOnly = true,
+                                                    label = { Text("المجموعة الدراسية", fontWeight = FontWeight.Bold) },
+                                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = groupDropdownExpanded) },
+                                                    modifier = Modifier
+                                                        .menuAnchor()
+                                                        .fillMaxWidth()
+                                                        .testTag("attendance_group_picker")
                                                 )
+                                                ExposedDropdownMenu(
+                                                    expanded = groupDropdownExpanded,
+                                                    onDismissRequest = { groupDropdownExpanded = false }
+                                                ) {
+                                                    state.groups.forEach { g ->
+                                                        DropdownMenuItem(
+                                                            text = { Text("${g.name} (${L.localizedGrade(g.grade)})") },
+                                                            onClick = {
+                                                                viewModel.onGroupSelected(g.id)
+                                                                groupDropdownExpanded = false
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if (currentGroup != null && onNavigateToGroup != null) {
+                                            FilledTonalButton(
+                                                onClick = { onNavigateToGroup(currentGroup.id) },
+                                                shape = RoundedCornerShape(10.dp),
+                                                modifier = Modifier.height(52.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Groups, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("المجموعة", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+
+                                    // Session Folder & Documents Path Shortcut Banner
+                                    if (currentGroup != null) {
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                                            modifier = Modifier.fillMaxWidth().clickable {
+                                                com.example.util.TeacherHackerDirectoryManager.openSessionFolder(context, currentGroup.name, state.selectedDate)
+                                            }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                                    Icon(Icons.Filled.FolderSpecial, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "مجلد الحصة: DOCUMENTS / TEACHER HACKER / ${state.selectedDate} - ${currentGroup.name}",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                                Text("فتح ➔", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -864,12 +916,12 @@ fun AttendanceScreen(
                                                     )
                                                 }
 
-                                                // Quick Camera Button for this student
+                                                // Quick Camera / CamScanner Button for this student
                                                 FilledTonalIconButton(
                                                     onClick = {
                                                         selectedHomeworkStudentId = student.id
                                                         selectedMainTab = 1
-                                                        cameraLauncher.launch(null)
+                                                        showCamScannerDialog = true
                                                     },
                                                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                                                         containerColor = OrangeAccent.copy(alpha = 0.15f),
@@ -881,7 +933,7 @@ fun AttendanceScreen(
                                                 ) {
                                                     Icon(
                                                         Icons.Filled.CameraAlt,
-                                                        contentDescription = "تصوير واجب ${student.name}",
+                                                        contentDescription = "تصوير واجب ${student.name} بالماسح الذكي",
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                 }
@@ -1046,25 +1098,41 @@ fun AttendanceScreen(
                                         color = MaterialTheme.colorScheme.primary
                                     )
 
+                                    // CamScanner Smart Scanner Primary Action
+                                    Button(
+                                        onClick = {
+                                            showCamScannerDialog = true
+                                        },
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(56.dp)
+                                            .testTag("hw_cam_scanner_btn")
+                                    ) {
+                                        Icon(Icons.Filled.DocumentScanner, contentDescription = null, modifier = Modifier.size(24.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("ماسح المستندات الذكي (CamScanner) 📄✨", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    }
+
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        // Camera Button
-                                        Button(
+                                        // Standard Camera Button
+                                        OutlinedButton(
                                             onClick = {
                                                 cameraLauncher.launch(null)
                                             },
                                             shape = RoundedCornerShape(14.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .height(54.dp)
+                                                .height(50.dp)
                                                 .testTag("hw_camera_btn")
                                         ) {
-                                            Icon(Icons.Filled.CameraAlt, contentDescription = null, modifier = Modifier.size(22.dp))
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("تصوير بالكاميرا 📷", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                            Icon(Icons.Filled.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("كاميرا عادية 📷", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                         }
 
                                         // Gallery Button
@@ -1075,12 +1143,12 @@ fun AttendanceScreen(
                                             shape = RoundedCornerShape(14.dp),
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .height(54.dp)
+                                                .height(50.dp)
                                                 .testTag("hw_gallery_btn")
                                         ) {
-                                            Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(22.dp))
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("من المعرض 🖼️", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                            Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("من المعرض 🖼️", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                         }
                                     }
 
@@ -1803,6 +1871,20 @@ fun AttendanceScreen(
     if (showCasioCalculator) {
         CasioScientificCalculatorDialog(
             onDismiss = { showCasioCalculator = false }
+        )
+    }
+
+    // CamScanner Interactive Homework Scanner Dialog
+    if (showCamScannerDialog) {
+        val studentName = state.studentsAttendanceList.find { it.student.id == selectedHomeworkStudentId }?.student?.name
+        CamScannerDialog(
+            studentName = studentName,
+            onDismiss = { showCamScannerDialog = false },
+            onPagesScanned = { scannedBitmaps: List<android.graphics.Bitmap> ->
+                capturedHomeworkBitmaps.addAll(scannedBitmaps)
+                showCamScannerDialog = false
+                Toast.makeText(context, "تمت إضافة ${scannedBitmaps.size} صفحة مصححة من الواجب 📄✨", Toast.LENGTH_SHORT).show()
+            }
         )
     }
 }

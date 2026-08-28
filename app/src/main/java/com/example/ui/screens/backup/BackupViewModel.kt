@@ -49,17 +49,27 @@ class BackupViewModel(
             try {
                 val json = backupManager.createBackupJson()
                 val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                
+                // Primary destination: DOCUMENTS / TEACHER HACKER / النسخ_الاحتياطية_Backups
+                val backupsDir = com.example.util.TeacherHackerDirectoryManager.getBackupsDir(context)
+                val primaryBackupFile = File(backupsDir, "TeacherHacker_Backup_$dateStr.json")
+                FileOutputStream(primaryBackupFile).use { fos ->
+                    fos.write(json.toByteArray())
+                }
+
+                // Cache copy for FileProvider sharing
                 val cacheDir = File(context.cacheDir, "backups")
                 if (!cacheDir.exists()) cacheDir.mkdirs()
-                val backupFile = File(cacheDir, "TeacherPlannerPro_Backup_$dateStr.json")
+                val backupFile = File(cacheDir, "TeacherHacker_Backup_$dateStr.json")
                 FileOutputStream(backupFile).use { fos ->
                     fos.write(json.toByteArray())
                 }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     backupJson = json,
                     backupFile = backupFile,
-                    message = "تم إنشاء النسخة الاحتياطية بنجاح"
+                    message = "تم حفظ النسخة الاحتياطية بنجاح في DOCUMENTS/TEACHER HACKER"
                 )
                 onShare(backupFile)
             } catch (e: Exception) {

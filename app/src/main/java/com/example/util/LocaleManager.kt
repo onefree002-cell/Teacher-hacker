@@ -479,6 +479,12 @@ object L {
         AppLanguage.FRENCH -> "Portfolio Enseignant"
     }
 
+    fun financeHub(): String = when (LocaleManager.currentLanguage.value) {
+        AppLanguage.ARABIC -> "المالية والخزينة"
+        AppLanguage.ENGLISH -> "Finance & Treasury"
+        AppLanguage.FRENCH -> "Finances et Trésorerie"
+    }
+
     fun printHub(): String = when (LocaleManager.currentLanguage.value) {
         AppLanguage.ARABIC -> "مركز الطباعة"
         AppLanguage.ENGLISH -> "Print Hub"

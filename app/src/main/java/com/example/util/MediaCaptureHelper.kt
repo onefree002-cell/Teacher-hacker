@@ -49,6 +49,24 @@ object MediaCaptureHelper {
         }
     }
 
+    fun saveBitmapToLocalStorage(context: Context, bitmap: android.graphics.Bitmap, prefix: String = "SCAN"): String? {
+        return try {
+            val internalPhotosDir = File(context.filesDir, "homework_photos").apply {
+                if (!exists()) mkdirs()
+            }
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.ENGLISH).format(Date())
+            val targetFile = File(internalPhotosDir, "${prefix}_$timeStamp.jpg")
+
+            FileOutputStream(targetFile).use { output ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, output)
+            }
+            targetFile.absolutePath
+        } catch (e: Exception) {
+            Log.e("MediaCaptureHelper", "Failed to save bitmap to local storage", e)
+            null
+        }
+    }
+
     fun shareMediaWithWhatsApp(
         context: Context,
         phoneNumber: String?,

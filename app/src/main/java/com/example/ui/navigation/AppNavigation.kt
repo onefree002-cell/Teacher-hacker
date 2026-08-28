@@ -115,6 +115,10 @@ fun AppNavigation(
 
     if (showGuidedTourDialog) {
         com.example.ui.components.AppGuidedTourDialog(
+            repository = repository,
+            groupsViewModel = groupsViewModel,
+            studentsViewModel = studentsViewModel,
+            attendanceViewModel = attendanceViewModel,
             onDismiss = {
                 showGuidedTourDialog = false
                 AppPreferencesManager.setHasSeenTour(true)
@@ -158,17 +162,26 @@ fun AppNavigation(
                             label = { Text(screen.getLocalizedTitle(), maxLines = 1) },
                             selected = isSelected,
                             onClick = {
-                                val targetRoute = when (screen) {
-                                    is Screen.TeacherTools -> Screen.TeacherTools.createRoute()
-                                    else -> screen.route
-                                }
-                                if (!isSelected) {
-                                    navController.navigate(targetRoute) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
+                                if (screen is Screen.Dashboard) {
+                                    navController.navigate(Screen.Dashboard.route) {
+                                        popUpTo(Screen.Dashboard.route) {
+                                            inclusive = false
                                         }
                                         launchSingleTop = true
-                                        restoreState = true
+                                    }
+                                } else {
+                                    val targetRoute = when (screen) {
+                                        is Screen.TeacherTools -> Screen.TeacherTools.createRoute()
+                                        else -> screen.route
+                                    }
+                                    if (!isSelected) {
+                                        navController.navigate(targetRoute) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
                                 }
                             },
@@ -249,7 +262,10 @@ fun AppNavigation(
                 AttendanceScreen(
                     viewModel = attendanceViewModel,
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateHome = navigateToHome
+                    onNavigateHome = navigateToHome,
+                    onNavigateToGroup = { gId ->
+                        navController.navigate(Screen.GroupDetail.createRoute(gId))
+                    }
                 )
             }
 
@@ -306,6 +322,9 @@ fun AppNavigation(
                     },
                     onOpenHomeworkInPdfViewer = { filePath, title ->
                         navController.navigate(Screen.PdfViewer.createRoute(filePath, title))
+                    },
+                    onNavigateToGroup = { gId ->
+                        navController.navigate(Screen.GroupDetail.createRoute(gId))
                     }
                 )
             }
@@ -490,7 +509,9 @@ fun AppNavigation(
                     onNavigateToStudents = { navController.navigate(Screen.Students.route) },
                     onNavigateToSmartPrep = { navController.navigate(Screen.SmartPrep.route) },
                     onNavigateToAiChat = { navController.navigate(Screen.AiChat.route) },
-                    onNavigateToStudyFiles = { navController.navigate(Screen.StudyFiles.createRoute()) }
+                    onNavigateToStudyFiles = { navController.navigate(Screen.StudyFiles.createRoute()) },
+                    onNavigateToFinance = { navController.navigate(Screen.Finance.route) },
+                    onNavigateToGroups = { navController.navigate(Screen.Groups.route) }
                 )
             }
 

@@ -79,6 +79,7 @@ enum class TeacherToolsTab(
     BOOKLET_TRACKER("سجل تسليم المذكرات", "متابعة تسليم واستلام الشيتات والكتب والمصاريف", "الإدارة والطباعة", Icons.Filled.MenuBook, EmeraldSuccess),
     PORTFOLIO_CARDS("بورتفوليو وبطاقة المعلم", "شيت كروت شخصية وباركود تعريفي فاخر للطباعة", "الإدارة والطباعة", Icons.Filled.Badge, Color(0xFFD97706)),
     MATH_BOOKS_DOWNLOADER("تحميل كتب الرياضيات الخارجية", "تحميل الكتب الخارجية ومذكرات الرياضيات من mathedu03.eyoo.org", "الرياضيات والحساب", Icons.Filled.CloudDownload, Color(0xFF0D9488)),
+    FINANCE_HUB("المالية والخزينة والاشتراكات", "متابعة تحصيل الاشتراكات والمصروفات والسناتر", "الإدارة والطباعة", Icons.Filled.AccountBalanceWallet, Color(0xFF047857)),
     PRINT_HUB("مركز الطباعة السريع", "طباعة كارنيهات الطلاب، لوحة الشرف، وجداول الحصص", "الإدارة والطباعة", Icons.Filled.Print, NavyPrimary),
     TEMPLATES("قوالب رسائل الواتساب", "رسائل تشجيع وترحيب ومتابعة جاهزة للمشاركة", "الإدارة والطباعة", Icons.Filled.Send, Color(0xFFEC4899));
 
@@ -93,6 +94,7 @@ enum class TeacherToolsTab(
         PORTFOLIO_CARDS -> com.example.util.L.portfolioCards()
         CASIO_CALC -> com.example.util.L.casioCalculator()
         MATH_BOOKS_DOWNLOADER -> com.example.util.L.mathBooksDownloader()
+        FINANCE_HUB -> com.example.util.L.financeHub()
         PRINT_HUB -> com.example.util.L.printHub()
         TEMPLATES -> com.example.util.L.templates()
     }
@@ -108,7 +110,9 @@ fun TeacherToolsScreen(
     onNavigateToStudents: () -> Unit = {},
     onNavigateToSmartPrep: () -> Unit = {},
     onNavigateToAiChat: () -> Unit = {},
-    onNavigateToStudyFiles: () -> Unit = {}
+    onNavigateToStudyFiles: () -> Unit = {},
+    onNavigateToFinance: () -> Unit = {},
+    onNavigateToGroups: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -452,6 +456,7 @@ fun TeacherToolsScreen(
                             TeacherToolsTab.PORTFOLIO_CARDS -> TeacherPortfolioAndCardsView(state, context)
                             TeacherToolsTab.CASIO_CALC -> CasioCalculatorToolView()
                             TeacherToolsTab.MATH_BOOKS_DOWNLOADER -> MathBooksDownloaderView(onNavigateToStudyFiles = onNavigateToStudyFiles)
+                            TeacherToolsTab.FINANCE_HUB -> FinanceHubView(state = state, onNavigateToFinance = onNavigateToFinance)
                             TeacherToolsTab.PRINT_HUB -> QuickPrintHubView(state, viewModel, context, onNavigateToSchedule)
                             TeacherToolsTab.TEMPLATES -> MotivationTemplatesView(state, context)
                         }
@@ -989,6 +994,7 @@ private fun HomeworkScannerView(
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
     var viewingPhotoPath by remember { mutableStateOf<String?>(null) }
     var showPdfSuccessDialog by remember { mutableStateOf<File?>(null) }
+    var showCamScannerDialog by remember { mutableStateOf(false) }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -1242,13 +1248,29 @@ private fun HomeworkScannerView(
                         )
                     }
 
-                    // Photo Action Buttons (Multi-Page Support)
-                    Text("تصوير صفحات الواجب بالكاميرا أو المعرض:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    // Photo Action Buttons (Multi-Page Support & CamScanner)
+                    Text("تصوير صفحات الواجب بالماسح الذكي أو الكاميرا:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    
+                    // CamScanner Primary Button
+                    Button(
+                        onClick = { showCamScannerDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("tools_cam_scanner_btn")
+                    ) {
+                        Icon(Icons.Filled.DocumentScanner, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("ماسح المستندات الذكي (قص تلقائي وإزالة ظلال) 📄✨", fontWeight = FontWeight.Bold)
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 if (hasCameraPermission) {
                                     val pair = MediaCaptureHelper.createTempCameraImageUri(context)
@@ -1260,7 +1282,6 @@ private fun HomeworkScannerView(
                                     cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1f)
@@ -1268,7 +1289,7 @@ private fun HomeworkScannerView(
                         ) {
                             Icon(Icons.Filled.CameraAlt, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("التقاط صورة 📸")
+                            Text("كاميرا 📸")
                         }
 
                         OutlinedButton(
@@ -1580,6 +1601,24 @@ private fun HomeworkScannerView(
                 }
             }
         }
+    }
+
+    if (showCamScannerDialog) {
+        val selectedStudentName = state.students.find { it.id == state.hwStudentId }?.name
+        com.example.ui.components.CamScannerDialog(
+            studentName = selectedStudentName,
+            onDismiss = { showCamScannerDialog = false },
+            onPagesScanned = { scannedBitmaps: List<android.graphics.Bitmap> ->
+                scannedBitmaps.forEach { bmp ->
+                    val path = com.example.util.MediaCaptureHelper.saveBitmapToLocalStorage(context, bmp, "HW_SCAN")
+                    if (path != null) {
+                        viewModel.addHwPhotoPath(path)
+                    }
+                }
+                showCamScannerDialog = false
+                Toast.makeText(context, "تمت إضافة ${scannedBitmaps.size} صفحة مصححة من الواجب 📄✨", Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 }
 
@@ -3033,11 +3072,12 @@ private fun CasioCalculatorToolView() {
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFF334155)
+                        color = Color(0xFF1E293B),
+                        border = BorderStroke(1.dp, Color(0xFF0284C7))
                     ) {
                         Text(
-                            text = "fx-991ES PLUS",
-                            color = Color(0xFFE2E8F0),
+                            text = "CLASSWIZ fx-991EX",
+                            color = Color(0xFF38BDF8),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -3088,6 +3128,218 @@ private fun CasioCalculatorToolView() {
             Spacer(modifier = Modifier.height(4.dp))
 
             CasioCalculatorContent()
+        }
+    }
+}
+
+// ==========================================
+// 13. FINANCE & TREASURY HUB VIEW (المالية والخزينة)
+// ==========================================
+@Composable
+private fun FinanceHubView(
+    state: TeacherToolsUiState,
+    onNavigateToFinance: () -> Unit
+) {
+    val totalStudents = state.students.size
+    val activeStudents = state.students.count { it.status == "active" }
+    val exemptStudents = state.students.count { it.isExempt }
+    val payingStudents = (activeStudents - exemptStudents).coerceAtLeast(0)
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("finance_hub_view"),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Hero Header Card
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF047857)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.AccountBalanceWallet,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "المالية والخزينة والاشتراكات 💰",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "إدارة الاشتراكات الشهرية، المصروفات، والتقارير المالية",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.85f)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Action Button to Open Full Finance Screen
+                    Button(
+                        onClick = onNavigateToFinance,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color(0xFF047857)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("btn_open_full_finance")
+                    ) {
+                        Icon(Icons.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("فتح شاشة المالية والخزينة التفصيلية 💼", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+
+        // Quick Stats Grid
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Students Paying Stats
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.People, contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("الطلاب المطالبين", style = MaterialTheme.typography.labelMedium)
+                        }
+                        Text(
+                            text = "$payingStudents طالب",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = NavyPrimary
+                        )
+                        Text(
+                            text = "من إجمالي $totalStudents طالب ($exemptStudents معفي/منحة)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Groups Count Stats
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Groups, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("المجموعات النشطة", style = MaterialTheme.typography.labelMedium)
+                        }
+                        Text(
+                            text = "${state.groups.size} مجموعات",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = EmeraldSuccess
+                        )
+                        Text(
+                            text = "اشتراكات وحساب سناتر",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        // Quick Feature Cards List
+        item {
+            Text(
+                text = "الخدمات المالية المتوفرة في المنظومة:",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+        }
+
+        val financeFeatures = listOf(
+            Triple("سجل تحصيل الاشتراكات الشهرية", "متابعة دفع كل طالب لاشتراك الشهر مع سندات القبض", Icons.Filled.ReceiptLong),
+            Triple("إدارة المصروفات والنثريات", "تسجيل مصاريف المذكرات، إيجار القاعات، والطباعة", Icons.Filled.Paid),
+            Triple("حساب نسب السناتر والقاعات", "تصفية حسابات ونسب السنتر تلقائياً حسب عدد الحاضرين", Icons.Filled.Business),
+            Triple("التقارير المالية وPDF", "تصدير كشف حساب وإيرادات وأرباح المعلم PDF", Icons.Filled.PictureAsPdf)
+        )
+
+        items(financeFeatures) { (title, subtitle, icon) ->
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToFinance() }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF047857).copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, contentDescription = null, tint = Color(0xFF047857), modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     }
 }

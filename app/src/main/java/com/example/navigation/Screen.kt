@@ -84,9 +84,9 @@ sealed class Screen(val route: String, val title: String, val selectedIcon: Imag
                 Dashboard,
                 Schedule,
                 Attendance,
+                Groups,
                 Students,
-                TeacherTools,
-                Finance
+                TeacherTools
             )
     }
 }

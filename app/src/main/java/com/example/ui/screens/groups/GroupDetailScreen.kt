@@ -26,7 +26,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import com.example.data.export.PdfReportExporter
 import com.example.data.local.entity.GroupEntity
+import com.example.data.local.entity.SessionEntity
 import com.example.ui.components.*
+import com.example.ui.screens.schedule.AddEditSessionDialog
 import com.example.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,11 +44,16 @@ fun GroupDetailScreen(
     onOpenFileInViewer: (filePath: String, title: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    val isArabic = com.example.util.L.isArabic()
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Students, 1 = Sessions, 2 = Exams
+    var selectedTab by remember { mutableStateOf(0) } // 0 = Students, 1 = Sessions, 2 = Exams, 3 = Study Files
+    var sessionSubTab by remember { mutableIntStateOf(0) } // 0 = Past Sessions Archive, 1 = Weekly Schedule
+    var selectedPastSession by remember { mutableStateOf<com.example.ui.screens.groups.PastSessionHistoryItem?>(null) }
+    var showPastSessionDialog by remember { mutableStateOf(false) }
     var showNewTermDialog by remember { mutableStateOf(false) }
     var showEditGroupDialog by remember { mutableStateOf(false) }
+    var showAddSessionDialog by remember { mutableStateOf(false) }
     var showWhatsAppGroupDialog by remember { mutableStateOf(false) }
     var showMultiParentDialog by remember { mutableStateOf(false) }
     var filterTermOnlyCurrent by remember { mutableStateOf(false) }
@@ -332,60 +339,316 @@ fun GroupDetailScreen(
                         }
 
                         Column(modifier = Modifier.fillMaxSize()) {
-                            Row(
+                            // Sub Tab Selector: Past Sessions Archive vs Weekly Schedule
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
                             ) {
-                                FilterChip(
-                                    selected = !filterTermOnlyCurrent,
-                                    onClick = { filterTermOnlyCurrent = false },
-                                    label = { Text("جميع الأترام (${state.groupSessions.size})", style = MaterialTheme.typography.labelSmall) }
-                                )
-                                FilterChip(
-                                    selected = filterTermOnlyCurrent,
-                                    onClick = { filterTermOnlyCurrent = true },
-                                    label = { Text("الترم الحالي فقط (${details.group.currentTerm})", style = MaterialTheme.typography.labelSmall) }
-                                )
+                                TabRow(
+                                    selectedTabIndex = sessionSubTab,
+                                    containerColor = Color.Transparent,
+                                    indicator = {},
+                                    divider = {}
+                                ) {
+                                    Tab(
+                                        selected = sessionSubTab == 0,
+                                        onClick = { sessionSubTab = 0 },
+                                        modifier = Modifier
+                                            .padding(3.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (sessionSubTab == 0) NavyPrimary else Color.Transparent)
+                                            .testTag("tab_past_sessions")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(Icons.Filled.HistoryEdu, contentDescription = null, tint = if (sessionSubTab == 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("سجل وملاحظات الحصص (${state.groupPastSessions.size})", fontSize = 12.sp, fontWeight = if (sessionSubTab == 0) FontWeight.Bold else FontWeight.Medium, color = if (sessionSubTab == 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+
+                                    Tab(
+                                        selected = sessionSubTab == 1,
+                                        onClick = { sessionSubTab = 1 },
+                                        modifier = Modifier
+                                            .padding(3.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (sessionSubTab == 1) NavyPrimary else Color.Transparent)
+                                            .testTag("tab_weekly_schedule")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = if (sessionSubTab == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("جدول المواعيد (${displayedSessions.size})", fontSize = 12.sp, fontWeight = if (sessionSubTab == 1) FontWeight.Bold else FontWeight.Medium, color = if (sessionSubTab == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
                             }
 
-                            if (displayedSessions.isNotEmpty()) {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                            if (sessionSubTab == 0) {
+                                // -------------------------------------------------------------
+                                // SUB-VIEW 0: PAST SESSIONS & NOTES ARCHIVE (سجل وملاحظات الحصص السابقة)
+                                // -------------------------------------------------------------
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    items(displayedSessions) { session ->
-                                        Card(
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(12.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween
+                                    Text(
+                                        "مجلدات الحصص في DOCUMENTS/TEACHER HACKER",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    FilledTonalButton(
+                                        onClick = onNavigateToAttendance,
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Icon(Icons.Filled.AddReaction, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("تسجيل حصة جديدة", fontSize = 11.sp)
+                                    }
+                                }
+
+                                if (state.groupPastSessions.isNotEmpty()) {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(state.groupPastSessions) { pastSession ->
+                                            Card(
+                                                shape = RoundedCornerShape(14.dp),
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                                modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                Column {
-                                                    Text("حصة ${session.day} - ${session.time}", fontWeight = FontWeight.Bold)
-                                                    Text("${session.location} • ${session.durationMinutes} دقيقة • ${session.term.ifEmpty { details.group.currentTerm }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                }
-                                                if (session.completed) {
-                                                    Text("مكتملة ✓", color = EmeraldSuccess, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                                                } else {
-                                                    Text("قادمة", color = AmberGold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                                                Column(
+                                                    modifier = Modifier.padding(14.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    // Header Row: Date, Day, Term & Folder Action
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Surface(
+                                                                shape = RoundedCornerShape(8.dp),
+                                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                                modifier = Modifier.padding(end = 8.dp)
+                                                            ) {
+                                                                Text(
+                                                                    text = pastSession.date,
+                                                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                                )
+                                                            }
+                                                            if (pastSession.day.isNotEmpty()) {
+                                                                Text(
+                                                                    pastSession.day,
+                                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                                    color = MaterialTheme.colorScheme.primary
+                                                                )
+                                                            }
+                                                        }
+
+                                                        // Open Folder in Documents Button
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                com.example.util.TeacherHackerDirectoryManager.openSessionFolder(
+                                                                    context,
+                                                                    details.group.name,
+                                                                    pastSession.date
+                                                                )
+                                                            },
+                                                            shape = RoundedCornerShape(8.dp),
+                                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                            modifier = Modifier.height(30.dp)
+                                                        ) {
+                                                            Icon(Icons.Filled.FolderSpecial, contentDescription = null, modifier = Modifier.size(14.dp), tint = NavyPrimary)
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                            Text("مجلد الحصة 📁", fontSize = 11.sp, color = NavyPrimary)
+                                                        }
+                                                    }
+
+                                                    // Topic & Lesson Content
+                                                    if (pastSession.topic.isNotEmpty()) {
+                                                        Row(verticalAlignment = Alignment.Top) {
+                                                            Text("📖 موضوع الدرس: ", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                                                            Text(pastSession.topic, style = MaterialTheme.typography.bodySmall)
+                                                        }
+                                                    }
+
+                                                    // Homework
+                                                    if (pastSession.homework.isNotEmpty()) {
+                                                        Row(verticalAlignment = Alignment.Top) {
+                                                            Text("✍️ الواجب المطلوب: ", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = OrangeAccent)
+                                                            Text(pastSession.homework, style = MaterialTheme.typography.bodySmall)
+                                                        }
+                                                    }
+
+                                                    // Teacher Notes
+                                                    if (pastSession.notes.isNotEmpty()) {
+                                                        Row(verticalAlignment = Alignment.Top) {
+                                                            Text("💡 الملاحظات: ", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                            Text(pastSession.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
+                                                    }
+
+                                                    // Attendance & Homework Stats Row
+                                                    Surface(
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text(
+                                                                "حاضر: ${pastSession.presentCount} | غائب: ${pastSession.absentCount} | حل الواجب: ${pastSession.hwCompletedCount}",
+                                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                                                color = MaterialTheme.colorScheme.primary
+                                                            )
+
+                                                            TextButton(
+                                                                onClick = {
+                                                                    selectedPastSession = pastSession
+                                                                    showPastSessionDialog = true
+                                                                },
+                                                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                                                modifier = Modifier.height(28.dp)
+                                                            ) {
+                                                                Icon(Icons.Filled.EditNote, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                                Spacer(modifier = Modifier.width(2.dp))
+                                                                Text("التفاصيل والملاحظات ✏️", fontSize = 11.sp)
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
+                                } else {
+                                    EmptyStateWidget(
+                                        title = "لا توجد حصص سابقة مسجلة لهذه المجموعة",
+                                        description = "عند تسجيل حضور أي حصة، سيتم حفظ تقرير وملاحظات الحصة تلقائياً في مجلد DOCUMENTS/TEACHER HACKER وأرشفتها هنا للرجوع إليها في أي وقت.",
+                                        icon = Icons.Filled.HistoryEdu,
+                                        actionText = "تسجيل حضور لحصة الآن",
+                                        onActionClick = onNavigateToAttendance
+                                    )
                                 }
                             } else {
-                                EmptyStateWidget(
-                                    title = "لا توجد حصص لهذا الفلتر",
-                                    description = "يمكنك إضافة حصص من صفحة الجدول الدراسي",
-                                    icon = Icons.Filled.CalendarMonth
-                                )
+                                // -------------------------------------------------------------
+                                // SUB-VIEW 1: WEEKLY SCHEDULE (جدول المواعيد الأسبوعية)
+                                // -------------------------------------------------------------
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        FilterChip(
+                                            selected = !filterTermOnlyCurrent,
+                                            onClick = { filterTermOnlyCurrent = false },
+                                            label = { Text(if (isArabic) "جميع الأترام (${state.groupSessions.size})" else "All Terms (${state.groupSessions.size})", style = MaterialTheme.typography.labelSmall) }
+                                        )
+                                        FilterChip(
+                                            selected = filterTermOnlyCurrent,
+                                            onClick = { filterTermOnlyCurrent = true },
+                                            label = { Text(if (isArabic) "الترم الحالي (${details.group.currentTerm})" else "Current Term", style = MaterialTheme.typography.labelSmall) }
+                                        )
+                                    }
+
+                                    Button(
+                                        onClick = { showAddSessionDialog = true },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.testTag("group_add_session_btn")
+                                    ) {
+                                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(if (isArabic) "إضافة حصة" else "Add Session", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+
+                                if (displayedSessions.isNotEmpty()) {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        items(displayedSessions) { session ->
+                                            Card(
+                                                shape = RoundedCornerShape(12.dp),
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            if (isArabic) "حصة ${session.day} - ${session.time}" else "Class ${session.day} - ${session.time}",
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        Text(
+                                                            "${session.location} • ${session.durationMinutes} ${if (isArabic) "دقيقة" else "min"} • ${session.term.ifEmpty { details.group.currentTerm }}",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        if (session.completed) {
+                                                            Text(if (isArabic) "مكتملة ✓" else "Completed", color = EmeraldSuccess, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                                                        } else {
+                                                            Text(if (isArabic) "قادمة" else "Upcoming", color = AmberGold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                                                        }
+                                                        IconButton(
+                                                            onClick = { viewModel.deleteSession(session) },
+                                                            modifier = Modifier.size(32.dp)
+                                                        ) {
+                                                            Icon(Icons.Filled.Delete, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    EmptyStateWidget(
+                                        title = if (isArabic) "لا توجد مواعيد مثبتة لهذه المجموعة" else "No Sessions for this Group",
+                                        description = if (isArabic) "اضغط على زر (إضافة حصة) بالأعلى لتثبيت مواعيد المجموعة مباشرة" else "Tap (+ Add Session) above to schedule class times",
+                                        icon = Icons.Filled.CalendarMonth,
+                                        actionText = if (isArabic) "+ إضافة حصة للمجموعة" else "+ Add Session",
+                                        onActionClick = { showAddSessionDialog = true }
+                                    )
+                                }
                             }
                         }
                     }
@@ -642,9 +905,27 @@ fun GroupDetailScreen(
                     venues = state.venues,
                     onAddNewVenue = { venue, onSaved -> viewModel.addNewVenue(venue, onSaved) },
                     onDismiss = { showEditGroupDialog = false },
-                    onSave = { updatedGroup ->
-                        viewModel.addOrUpdateGroup(updatedGroup)
+                    onSaveWithSessions = { updatedGroup, sessions ->
+                        viewModel.addOrUpdateGroup(updatedGroup, sessions)
                         showEditGroupDialog = false
+                    }
+                )
+            }
+
+            // ==========================================
+            // DIRECT ADD SESSION DIALOG
+            // ==========================================
+            if (showAddSessionDialog) {
+                AddEditSessionDialog(
+                    session = null,
+                    initialDay = details.group.sessionDays.split(" و ", "،", ",").firstOrNull()?.trim(),
+                    groups = listOf(details.group),
+                    venues = state.venues,
+                    onAddNewVenue = { venue, onSaved -> viewModel.addNewVenue(venue, onSaved) },
+                    onDismiss = { showAddSessionDialog = false },
+                    onSave = { session, onConflict ->
+                        viewModel.addSessionToGroup(session.copy(groupId = details.group.id))
+                        showAddSessionDialog = false
                     }
                 )
             }
@@ -673,6 +954,174 @@ fun GroupDetailScreen(
                     teacherName = state.teacher.name,
                     groupName = details.group.name,
                     onDismiss = { showMultiParentDialog = false }
+                )
+            }
+
+            // ==========================================
+            // PAST SESSION DETAILS & NOTES DIALOG
+            // ==========================================
+            if (showPastSessionDialog && selectedPastSession != null) {
+                val pastSession = selectedPastSession!!
+                var editTopic by remember(pastSession.date) { mutableStateOf(pastSession.topic) }
+                var editHomework by remember(pastSession.date) { mutableStateOf(pastSession.homework) }
+                var editNotes by remember(pastSession.date) { mutableStateOf(pastSession.notes) }
+                val studentMap = remember(state.groupStudents) { state.groupStudents.associateBy { it.id } }
+
+                AlertDialog(
+                    onDismissRequest = { showPastSessionDialog = false },
+                    icon = { Icon(Icons.Filled.HistoryEdu, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    title = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "ملاحظات وتفاصيل حصة ${pastSession.date}",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            if (pastSession.day.isNotEmpty()) {
+                                Text(
+                                    pastSession.day,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    },
+                    text = {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        com.example.util.TeacherHackerDirectoryManager.openSessionFolder(
+                                            context,
+                                            details.group.name,
+                                            pastSession.date
+                                        )
+                                    }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                            Icon(Icons.Filled.FolderSpecial, contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                "مجلد الحصة: DOCUMENTS / TEACHER HACKER / ${pastSession.date} - ${details.group.name}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        }
+                                        Text("فتح ➔", style = MaterialTheme.typography.labelSmall, color = NavyPrimary, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            item {
+                                OutlinedTextField(
+                                    value = editTopic,
+                                    onValueChange = { editTopic = it },
+                                    label = { Text("📖 عنوان وموضوع الدرس المشروح") },
+                                    placeholder = { Text("مثال: شرح الباب الأول، قوانين نيوتن...") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    maxLines = 3
+                                )
+                            }
+
+                            item {
+                                OutlinedTextField(
+                                    value = editHomework,
+                                    onValueChange = { editHomework = it },
+                                    label = { Text("✍️ الواجب المنزلي المطلوب") },
+                                    placeholder = { Text("مثال: حل ص 40 إلى 45 من المذكرة") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    maxLines = 3
+                                )
+                            }
+
+                            item {
+                                OutlinedTextField(
+                                    value = editNotes,
+                                    onValueChange = { editNotes = it },
+                                    label = { Text("💡 ملاحظات وتوجيهات المعلم للحصة") },
+                                    placeholder = { Text("أي ملاحظات عامة حول التفاعل أو مستوى الطلاب...") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    maxLines = 4
+                                )
+                            }
+
+                            if (pastSession.records.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        "سجل الطلاب للحصة (${pastSession.records.size} طالب):",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
+                                items(pastSession.records) { record ->
+                                    val student = studentMap[record.studentId]
+                                    val studentName = student?.name ?: "طالب #${record.studentId}"
+                                    val isPresent = record.status == "present"
+                                    val isHwDone = record.homeworkStatus == "completed"
+
+                                    Card(
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(studentName, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                if (isPresent) {
+                                                    Text("حاضر", color = EmeraldSuccess, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                                } else {
+                                                    Text("غائب", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                                }
+                                                if (isHwDone) {
+                                                    Text("• تم الواجب", color = EmeraldSuccess, style = MaterialTheme.typography.labelSmall)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.updatePastSessionDetails(
+                                    groupId = details.group.id,
+                                    date = pastSession.date,
+                                    newTopic = editTopic,
+                                    newNotes = editNotes,
+                                    newHomework = editHomework,
+                                    context = context
+                                )
+                                showPastSessionDialog = false
+                                Toast.makeText(context, "تم تحديث ملاحظات الحصة والملف في DOCUMENTS بنجاح 💾", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("حفظ التعديلات وتحديث التقرير")
+                        }
+                    },
+                    dismissButton = {
+                        OutlinedButton(onClick = { showPastSessionDialog = false }) {
+                            Text("إغلاق")
+                        }
+                    }
                 )
             }
         } else {

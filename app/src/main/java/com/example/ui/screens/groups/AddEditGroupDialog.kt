@@ -21,7 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.GroupEntity
+import com.example.data.local.entity.SessionEntity
 import com.example.data.local.entity.VenueEntity
 import com.example.ui.components.AppTimePickerField
 import com.example.ui.components.VenueDropdownSelector
@@ -33,8 +35,10 @@ fun AddEditGroupDialog(
     venues: List<VenueEntity> = emptyList(),
     onAddNewVenue: (VenueEntity, (VenueEntity) -> Unit) -> Unit = { v, cb -> cb(v) },
     onDismiss: () -> Unit,
-    onSave: (GroupEntity) -> Unit
+    onSave: (GroupEntity) -> Unit = {},
+    onSaveWithSessions: ((GroupEntity, List<SessionEntity>) -> Unit)? = null
 ) {
+    val isArabic = com.example.util.L.isArabic()
     var name by remember { mutableStateOf(group?.name ?: "") }
     var groupNumber by remember { mutableStateOf(group?.groupNumber ?: "") }
     
@@ -86,13 +90,24 @@ fun AddEditGroupDialog(
     var currentTerm by remember { mutableStateOf(group?.currentTerm?.ifEmpty { "الترم الأول" } ?: "الترم الأول") }
 
     var pricingType by remember { mutableStateOf(group?.pricingType ?: "monthly") } // monthly or session
-    var price by remember { mutableStateOf(group?.monthlyPrice?.toString() ?: "300") }
+    var price by remember { mutableStateOf(group?.monthlyPrice?.toString()?.removeSuffix(".0") ?: "300") }
     var sessionDays by remember { mutableStateOf(group?.sessionDays ?: "السبت والاربعاء") }
     var sessionTime by remember { mutableStateOf(group?.sessionTime ?: "16:00") }
     var durationMinutes by remember { mutableStateOf(group?.durationMinutes?.toString() ?: "90") }
     var location by remember { mutableStateOf(group?.location ?: "سنتر التفوق - قاعة 1") }
     var whatsappGroupLink by remember { mutableStateOf(group?.whatsappGroupLink ?: "") }
     var notes by remember { mutableStateOf(group?.notes ?: "") }
+
+    // Direct Session Creation Inside Group
+    var autoCreateSessions by remember { mutableStateOf(group == null) }
+    val allWeekDays = listOf("السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة")
+    
+    // Parse initial selected days
+    var selectedDaysSet by remember {
+        mutableStateOf(
+            allWeekDays.filter { day -> sessionDays.contains(day) }.toSet().ifEmpty { setOf("السبت", "الأربعاء") }
+        )
+    }
 
     val dayPresets = listOf(
         "السبت والثلاثاء",
@@ -120,13 +135,17 @@ fun AddEditGroupDialog(
                     ) {
                         Icon(
                             Icons.Filled.ArrowBack,
-                            contentDescription = "رجوع",
+                            contentDescription = if (isArabic) "رجوع" else "Back",
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (group == null) "إضافة مجموعة دراسية" else "تعديل بيانات المجموعة",
+                        text = if (group == null) {
+                            if (isArabic) "إضافة مجموعة دراسية" else "Add New Group"
+                        } else {
+                            if (isArabic) "تعديل بيانات المجموعة" else "Edit Group Details"
+                        },
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -137,7 +156,7 @@ fun AddEditGroupDialog(
                 ) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = "إغلاق",
+                        contentDescription = if (isArabic) "إغلاق" else "Close",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -156,9 +175,9 @@ fun AddEditGroupDialog(
                         name = it
                         nameError = it.isBlank()
                     },
-                    label = { Text("اسم المجموعة * (مثال: مجموعة أوائل الثانوية)") },
+                    label = { Text(if (isArabic) "اسم المجموعة * (مثال: مجموعة أوائل الثانوية)" else "Group Name * (e.g. Grade 10 Advanced)") },
                     isError = nameError,
-                    supportingText = { if (nameError) Text("الاسم مطلوب") },
+                    supportingText = { if (nameError) Text(if (isArabic) "الاسم مطلوب" else "Name is required") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("group_name_input")
                 )
@@ -166,13 +185,13 @@ fun AddEditGroupDialog(
                 OutlinedTextField(
                     value = groupNumber,
                     onValueChange = { groupNumber = it },
-                    label = { Text("كود أو رقم المجموعة (مثال: G-101)") },
+                    label = { Text(if (isArabic) "كود أو رقم المجموعة (مثال: G-101)" else "Group Code / ID (e.g. G-101)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 // ==========================================
-                // 1. STAGE & GRADE SELECTOR (المرحلة والصف)
+                // 1. STAGE & GRADE SELECTOR
                 // ==========================================
                 com.example.ui.components.GradeStageSelectorField(
                     selectedGrade = grade,
@@ -181,7 +200,7 @@ fun AddEditGroupDialog(
                 )
 
                 // ==========================================
-                // 2. TERMS SYSTEM (نظام فصول وأترام المجموعة)
+                // 2. TERMS SYSTEM
                 // ==========================================
                 Column(
                     modifier = Modifier
@@ -192,7 +211,7 @@ fun AddEditGroupDialog(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        "نظام الفصول الدراسية (الأترام):",
+                        if (isArabic) "نظام الفصول الدراسية (الأترام):" else "Academic Terms System:",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -202,9 +221,9 @@ fun AddEditGroupDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            Pair(1, "ترم واحد"),
-                            Pair(2, "ترمان (فصلان)"),
-                            Pair(3, "ثلاثة أترام")
+                            Pair(1, if (isArabic) "ترم واحد" else "1 Term"),
+                            Pair(2, if (isArabic) "ترمان (فصلان)" else "2 Terms"),
+                            Pair(3, if (isArabic) "ثلاثة أترام" else "3 Terms")
                         ).forEach { (count, label) ->
                             FilterChip(
                                 selected = termsCount == count,
@@ -218,7 +237,7 @@ fun AddEditGroupDialog(
                     OutlinedTextField(
                         value = currentTerm,
                         onValueChange = { currentTerm = it },
-                        label = { Text("مسمى الترم الحالي (مثال: الترم الأول 2025/2026)") },
+                        label = { Text(if (isArabic) "مسمى الترم الحالي (مثال: الترم الأول 2025/2026)" else "Current Term Name") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -228,7 +247,12 @@ fun AddEditGroupDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        listOf("الترم الأول", "الترم الثاني", "الترم الثالث", "الفصل الصيفي").forEach { termSugg ->
+                        listOf(
+                            if (isArabic) "الترم الأول" else "Term 1",
+                            if (isArabic) "الترم الثاني" else "Term 2",
+                            if (isArabic) "الترم الثالث" else "Term 3",
+                            if (isArabic) "الفصل الصيفي" else "Summer Term"
+                        ).forEach { termSugg ->
                             SuggestionChip(
                                 onClick = { currentTerm = termSugg },
                                 label = { Text(termSugg, style = MaterialTheme.typography.labelSmall) }
@@ -238,7 +262,7 @@ fun AddEditGroupDialog(
                 }
 
                 // Pricing Type Row
-                Text("نظام المحاسبة والتسعير:", style = MaterialTheme.typography.labelMedium)
+                Text(if (isArabic) "نظام المحاسبة والتسعير:" else "Billing & Pricing Model:", style = MaterialTheme.typography.labelMedium)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -246,79 +270,167 @@ fun AddEditGroupDialog(
                     FilterChip(
                         selected = pricingType == "monthly",
                         onClick = { pricingType = "monthly" },
-                        label = { Text("اشتراك شهري") },
+                        label = { Text(if (isArabic) "اشتراك شهري" else "Monthly") },
                         modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = pricingType == "session",
                         onClick = { pricingType = "session" },
-                        label = { Text("حساب بالحصة") },
+                        label = { Text(if (isArabic) "حساب بالحصة" else "Per Session") },
                         modifier = Modifier.weight(1f)
                     )
                 }
 
                 OutlinedTextField(
                     value = price,
-                    onValueChange = { price = it },
-                    label = { Text(if (pricingType == "monthly") "قيمة الاشتراك الشهري (ج.م)" else "سعر الحصة الواحدة (ج.م)") },
+                    onValueChange = { price = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = { Text(if (pricingType == "monthly") (if (isArabic) "قيمة الاشتراك الشهري (ج.م)" else "Monthly Fee") else (if (isArabic) "سعر الحصة الواحدة (ج.م)" else "Session Fee")) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("group_price_input")
                 )
 
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = sessionDays,
-                        onValueChange = { sessionDays = it },
-                        label = { Text("أيام الحصص (مثال: الأحد والثلاثاء)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
+                // ==========================================
+                // 3. SCHEDULE & DIRECT SESSION CREATION
+                // ==========================================
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(dayPresets) { preset ->
-                            SuggestionChip(
-                                onClick = { sessionDays = preset },
-                                label = { Text(preset, style = MaterialTheme.typography.labelSmall) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isArabic) "مواعيد الحصص الأسبوعية" else "Weekly Schedule Days",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = if (isArabic) "اختر أيام الحصص لتثبيتها في الجدول مباشرة:" else "Select class days to schedule automatically:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // Multi-select Day Chips
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            allWeekDays.take(4).forEach { dayName ->
+                                val isSelected = selectedDaysSet.contains(dayName)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        selectedDaysSet = if (isSelected) selectedDaysSet - dayName else selectedDaysSet + dayName
+                                        sessionDays = selectedDaysSet.joinToString(" و ")
+                                    },
+                                    label = { Text(dayName, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            allWeekDays.drop(4).forEach { dayName ->
+                                val isSelected = selectedDaysSet.contains(dayName)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        selectedDaysSet = if (isSelected) selectedDaysSet - dayName else selectedDaysSet + dayName
+                                        sessionDays = selectedDaysSet.joinToString(" و ")
+                                    },
+                                    label = { Text(dayName, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
+                        // Presets
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(dayPresets) { preset ->
+                                SuggestionChip(
+                                    onClick = {
+                                        sessionDays = preset
+                                        selectedDaysSet = allWeekDays.filter { preset.contains(it) }.toSet()
+                                    },
+                                    label = { Text(preset, style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppTimePickerField(
+                                value = sessionTime,
+                                onValueChange = { sessionTime = it },
+                                label = if (isArabic) "توقيت الحصة" else "Class Time",
+                                modifier = Modifier.weight(1.3f)
+                            )
+                            OutlinedTextField(
+                                value = durationMinutes,
+                                onValueChange = { durationMinutes = it.filter { ch -> ch.isDigit() } },
+                                label = { Text(if (isArabic) "المدة (دقيقة)" else "Duration (min)") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        VenueDropdownSelector(
+                            selectedVenueName = location,
+                            onVenueSelected = { location = it },
+                            venues = venues,
+                            onAddNewVenue = onAddNewVenue,
+                            label = if (isArabic) "مكان الحصة / السنتر / القاعة" else "Class Venue / Room"
+                        )
+
+                        // Auto-create sessions toggle
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { autoCreateSessions = !autoCreateSessions }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = autoCreateSessions,
+                                onCheckedChange = { autoCreateSessions = it }
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isArabic) "إنشاء وتثبيت الحصص فوراً في جدول المواعيد" else "Auto-create weekly sessions in schedule",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AppTimePickerField(
-                        value = sessionTime,
-                        onValueChange = { sessionTime = it },
-                        label = "توقيت الحصة",
-                        modifier = Modifier.weight(1.3f)
-                    )
-                    OutlinedTextField(
-                        value = durationMinutes,
-                        onValueChange = { durationMinutes = it },
-                        label = { Text("المدة (دقيقة)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                VenueDropdownSelector(
-                    selectedVenueName = location,
-                    onVenueSelected = { location = it },
-                    venues = venues,
-                    onAddNewVenue = onAddNewVenue,
-                    label = "مكان الحصة / السنتر / القاعة"
-                )
-
                 // WhatsApp Group Link Field
                 OutlinedTextField(
                     value = whatsappGroupLink,
                     onValueChange = { whatsappGroupLink = it.trim() },
-                    label = { Text("رابط جروب واتساب المجموعة (اختياري)") },
+                    label = { Text(if (isArabic) "رابط جروب واتساب المجموعة (اختياري)" else "Group WhatsApp Link (Optional)") },
                     placeholder = { Text("https://chat.whatsapp.com/...") },
                     leadingIcon = {
                         Icon(Icons.Filled.Link, contentDescription = null, tint = com.example.ui.theme.EmeraldSuccess)
@@ -330,7 +442,7 @@ fun AddEditGroupDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("ملاحظات إضافية") },
+                    label = { Text(if (isArabic) "ملاحظات إضافية" else "Additional Notes") },
                     maxLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -344,6 +456,7 @@ fun AddEditGroupDialog(
                         return@Button
                     }
                     val finalGrade = if (selectedStage == "أخرى") customGrade.trim().ifEmpty { "عام" } else grade.trim()
+                    val daysText = if (selectedDaysSet.isNotEmpty()) selectedDaysSet.joinToString(" و ") else sessionDays.trim()
                     val updated = GroupEntity(
                         id = group?.id ?: 0L,
                         name = name.trim(),
@@ -354,7 +467,7 @@ fun AddEditGroupDialog(
                         currentTerm = currentTerm.trim().ifEmpty { "الترم الأول" },
                         pricingType = pricingType,
                         monthlyPrice = price.toDoubleOrNull() ?: 0.0,
-                        sessionDays = sessionDays.trim(),
+                        sessionDays = daysText,
                         sessionTime = sessionTime.trim(),
                         durationMinutes = durationMinutes.toIntOrNull() ?: 90,
                         location = location.trim(),
@@ -362,7 +475,27 @@ fun AddEditGroupDialog(
                         notes = notes.trim(),
                         createdAt = group?.createdAt ?: System.currentTimeMillis()
                     )
-                    onSave(updated)
+
+                    val targetDays = if (selectedDaysSet.isNotEmpty()) selectedDaysSet.toList() else sessionDays.split(" و ", "،", ",").map { it.trim() }.filter { it.isNotEmpty() }
+                    val generatedSessions = if (autoCreateSessions) {
+                        targetDays.map { dayName ->
+                            SessionEntity(
+                                groupId = group?.id ?: 0L,
+                                day = dayName,
+                                time = sessionTime.trim().ifEmpty { "16:00" },
+                                durationMinutes = durationMinutes.toIntOrNull() ?: 90,
+                                location = location.trim(),
+                                term = currentTerm.trim().ifEmpty { "الترم الأول" },
+                                completed = false
+                            )
+                        }
+                    } else emptyList()
+
+                    if (onSaveWithSessions != null) {
+                        onSaveWithSessions(updated, generatedSessions)
+                    } else {
+                        onSave(updated)
+                    }
                     onDismiss()
                 },
                 shape = RoundedCornerShape(10.dp),
@@ -370,7 +503,14 @@ fun AddEditGroupDialog(
             ) {
                 Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(if (group == null) "إضافة المجموعة" else "حفظ التعديلات", fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (group == null) {
+                        if (isArabic) "إضافة المجموعة والحصص" else "Add Group & Schedule"
+                    } else {
+                        if (isArabic) "حفظ التعديلات" else "Save Changes"
+                    },
+                    fontWeight = FontWeight.Bold
+                )
             }
         },
         dismissButton = {
@@ -381,8 +521,9 @@ fun AddEditGroupDialog(
             ) {
                 Icon(Icons.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("رجوع / إلغاء")
+                Text(if (isArabic) "رجوع / إلغاء" else "Cancel")
             }
         }
     )
 }
+

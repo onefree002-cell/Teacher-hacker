@@ -37,11 +37,8 @@ object HomeworkPdfExporter {
         // Exact naming requirement: "واجب - اسم الطالب - تاريخ الحصة.pdf"
         val fileName = "واجب - ${sanitizedStudent.replace("/", "-")} - $sanitizedDate.pdf"
 
-        val exportDir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "HomeworkReports")
-        if (!exportDir.exists()) {
-            exportDir.mkdirs()
-        }
-        val pdfFile = File(exportDir, fileName)
+        val sessionFolder = com.example.util.TeacherHackerDirectoryManager.getSessionDir(context, groupName, sanitizedDate)
+        val pdfFile = File(sessionFolder, fileName)
 
         val document = PdfDocument()
 
