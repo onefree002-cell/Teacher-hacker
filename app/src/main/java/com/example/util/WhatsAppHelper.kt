@@ -85,11 +85,14 @@ $groupLink
     fun createGeneralFollowUpMessage(
         studentName: String,
         messageContent: String,
-        teacherName: String
+        teacherName: String,
+        gender: String = "boy"
     ): String {
+        val isGirl = gender == "girl" || gender == "female"
+        val guardianSalutation = if (isGirl) "ولي أمر الطالبة المحترمة / $studentName" else "ولي أمر الطالب المحترم / $studentName"
         return """
 السلام عليكم ورحمة الله وبركاته،
-ولي أمر الطالب المحترم / $studentName
+$guardianSalutation
 
 $messageContent
 
@@ -105,15 +108,22 @@ $messageContent
         studentName: String,
         date: String,
         groupName: String,
-        teacherName: String
+        teacherName: String,
+        gender: String = "boy"
     ): String {
+        val isGirl = gender == "girl" || gender == "female"
+        val guardianSalutation = if (isGirl) "ولي أمر الطالبة المحترمة / $studentName" else "ولي أمر الطالب المحترم / $studentName"
+        val absenceBody = if (isGirl) {
+            "نحيط سيادتكم علماً بأن الطالبة قد تغيبت اليوم ($date) عن حضور حصة مادة المنهج في مجموعة ($groupName).\n\nيرجى التواصل معنا لتنسيق تعويض الحصة ومعرفة سبب الغياب، حرصاً على مستوى الطالبة وعدم تراكم الدروس عليها."
+        } else {
+            "نحيط سيادتكم علماً بأن الطالب قد تغيب اليوم ($date) عن حضور حصة مادة المنهج في مجموعة ($groupName).\n\nيرجى التواصل معنا لتنسيق تعويض الحصة ومعرفة سبب الغياب، حرصاً على مستوى الطالب وعدم تراكم الدروس عليه."
+        }
+
         return """
 السلام عليكم ورحمة الله وبركاته،
-ولي أمر الطالب المحترم / $studentName
+$guardianSalutation
 
-نحيط سيادتكم علماً بأن الطالب قد تغيب اليوم ($date) عن حضور حصة مادة المنهج في مجموعة ($groupName).
-
-يرجى التواصل معنا لتنسيق تعويض الحصة ومعرفة سبب الغياب، حرصاً على مستوى الطالب وعدم تراكم الدروس عليه.
+$absenceBody
 
 شاكرين لسيادتكم دوام المتابعة والحرص،
 أستاذ المادة: $teacherName
@@ -125,8 +135,10 @@ $messageContent
         examTitle: String,
         score: Double,
         maxScore: Double,
-        teacherName: String
+        teacherName: String,
+        gender: String = "boy"
     ): String {
+        val isGirl = gender == "girl" || gender == "female"
         val validMax = if (maxScore > 0) maxScore else 100.0
         val pct = (score / validMax) * 100.0
         val scoreStr = formatNumber(score)
@@ -138,8 +150,12 @@ $messageContent
 
         when {
             pct >= 85.0 -> {
-                rating = "ممتاز ومتفوق 🌟🥇"
-                dynamicFeedback = "ما شاء الله تبارك الله! أداء رائع ومتميز جداً يعكس الجهد والتركيز العالي، متمنيين له دوام النجاح والتفوق الباهر والصدارة دائماً 👏🎉"
+                rating = if (isGirl) "ممتازة ومتفوقة 🌟🥇" else "ممتاز ومتفوق 🌟🥇"
+                dynamicFeedback = if (isGirl) {
+                    "ما شاء الله تبارك الله! أداء رائع ومتميز جداً يعكس الجهد والتركيز العالي، متمنيين لها دوام النجاح والتفوق الباهر والصدارة دائماً 👏🎉"
+                } else {
+                    "ما شاء الله تبارك الله! أداء رائع ومتميز جداً يعكس الجهد والتركيز العالي، متمنيين له دوام النجاح والتفوق الباهر والصدارة دائماً 👏🎉"
+                }
             }
             pct >= 65.0 -> {
                 rating = "جيد جداً 👍"
@@ -155,9 +171,11 @@ $messageContent
             }
         }
 
+        val guardianSalutation = if (isGirl) "ولي أمر الطالبة الكريمة / $studentName" else "ولي أمر الطالب الكريم / $studentName"
+
         return """
 السلام عليكم ورحمة الله وبركاته،
-ولي أمر الطالب الكريم / $studentName
+$guardianSalutation
 
 يسرنا إبلاغكم بنتيجة الامتحان الأخير:
 📝 *الامتحان:* $examTitle
@@ -175,17 +193,22 @@ $dynamicFeedback
         studentName: String,
         remainingAmount: Double,
         monthName: String,
-        teacherName: String
+        teacherName: String,
+        gender: String = "boy"
     ): String {
+        val isGirl = gender == "girl" || gender == "female"
         val amountStr = formatNumber(remainingAmount)
+        val guardianSalutation = if (isGirl) "ولي أمر الطالبة الكريمة / $studentName" else "ولي أمر الطالب الكريم / $studentName"
+        val targetStudent = if (isGirl) "للطالبة" else "للطالب"
+
         return """
 السلام عليكم ورحمة الله وبركاته،
-ولي أمر الطالب الكريم / $studentName
+$guardianSalutation
 
 نود تذكير سيادتكم بلطف بوجود مستحقات دراسية متبقية بقيمة:
 💰 *المبلغ المستحق:* $amountStr ج.م ($monthName)
 
-يرجى التكرم بسداد المبلغ في الحصة القادمة لتحديث السجل المالي للطالب.
+يرجى التكرم بسداد المبلغ في الحصة القادمة لتحديث السجل المالي $targetStudent.
 
 شاكرين حسن تعاونكم،
 أستاذ المادة: $teacherName
@@ -195,16 +218,21 @@ $dynamicFeedback
     fun createExcellenceMessage(
         studentName: String,
         achievementText: String,
-        teacherName: String
+        teacherName: String,
+        gender: String = "boy"
     ): String {
+        val isGirl = gender == "girl" || gender == "female"
+        val guardianSalutation = if (isGirl) "يسعدنا ويشرفنا تهنئة ولي أمر الطالبة المتميزة / $studentName" else "يسعدنا ويشرفنا تهنئة ولي أمر الطالب المتميز / $studentName"
+        val wish = if (isGirl) "نتمنى لها دائماً دوام التفوق والصدارة في المراتب الأولى!" else "نتمنى له دائماً دوام التفوق والصدارة في المراتب الأولى!"
+
         return """
 🎉 *شهادة تميز وتقدير* 🎉
 
 السلام عليكم ورحمة الله وبركاته،
-يسعدنا ويشرفنا تهنئة ولي أمر الطالب المتميز / $studentName
+$guardianSalutation
 تقديراً لـ: $achievementText 🌟
 
-نتمنى له دائماً دوام التفوق والصدارة في المراتب الأولى!
+$wish
 
 مع خالص تحيات وتقدير،
 أستاذ المادة: $teacherName
@@ -216,11 +244,15 @@ $dynamicFeedback
         homeworkTitle: String,
         pages: String,
         deadline: String,
-        teacherName: String
+        teacherName: String,
+        gender: String = "boy"
     ): String {
+        val isGirl = gender == "girl" || gender == "female"
+        val studentSalutation = if (isGirl) "عزيزتي الطالبة / $studentName" else "عزيزي الطالب / $studentName"
+
         return """
 السلام عليكم ورحمة الله وبركاته،
-عزيزي الطالب / $studentName
+$studentSalutation
 
 تذكير بواجب الحصة القادمة:
 📚 *الواجب:* $homeworkTitle

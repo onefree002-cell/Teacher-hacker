@@ -251,16 +251,34 @@ fun AppNavigation(
             composable(Screen.Schedule.route) {
                 ScheduleScreen(
                     viewModel = scheduleViewModel,
-                    onNavigateToAttendance = { navController.navigate(Screen.Attendance.route) },
+                    onNavigateToAttendance = { groupId, date ->
+                        navController.navigate(Screen.Attendance.createRoute(groupId, date))
+                    },
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateHome = navigateToHome
                 )
             }
 
             // 3. Attendance
-            composable(Screen.Attendance.route) {
+            composable(
+                route = Screen.Attendance.route,
+                arguments = listOf(
+                    navArgument("groupId") {
+                        type = NavType.LongType
+                        defaultValue = 0L
+                    },
+                    navArgument("date") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) { backStackEntry ->
+                val initialGroupId = backStackEntry.arguments?.getLong("groupId") ?: 0L
+                val initialDate = backStackEntry.arguments?.getString("date") ?: ""
                 AttendanceScreen(
                     viewModel = attendanceViewModel,
+                    initialGroupId = initialGroupId,
+                    initialDate = initialDate,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateHome = navigateToHome,
                     onNavigateToGroup = { gId ->

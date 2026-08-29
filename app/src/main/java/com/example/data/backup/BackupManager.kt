@@ -84,6 +84,12 @@ class BackupManager(private val db: AppDatabase) {
             obj.put("notes", s.notes)
             obj.put("isExempt", s.isExempt)
             obj.put("discountPercent", s.discountPercent)
+            obj.put("barcodeCode", s.barcodeCode)
+            obj.put("tags", s.tags)
+            obj.put("gender", s.gender)
+            obj.put("photoUri", s.photoUri ?: "")
+            obj.put("audioNoteUri", s.audioNoteUri ?: "")
+            obj.put("createdAt", s.createdAt)
             studentsArray.put(obj)
         }
         root.put("students", studentsArray)
@@ -308,7 +314,13 @@ class BackupManager(private val db: AppDatabase) {
                             status = obj.optString("status", "active"),
                             notes = obj.optString("notes", ""),
                             isExempt = obj.optBoolean("isExempt", false),
-                            discountPercent = obj.optDouble("discountPercent", 0.0)
+                            discountPercent = obj.optDouble("discountPercent", 0.0),
+                            barcodeCode = obj.optString("barcodeCode", ""),
+                            tags = obj.optString("tags", ""),
+                            gender = obj.optString("gender", "boy"),
+                            photoUri = obj.optString("photoUri", "").ifEmpty { null },
+                            audioNoteUri = obj.optString("audioNoteUri", "").ifEmpty { null },
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                     )
                 }

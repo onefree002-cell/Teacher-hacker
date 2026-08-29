@@ -61,6 +61,7 @@ data class StudentEntity(
     val discountPercent: Double = 0.0,
     val barcodeCode: String = "", // unique student code (e.g. STD-1001)
     val tags: String = "", // comma-separated tags e.g. "متميز, يحتاج متابعة"
+    val gender: String = "boy", // "boy" (ولد) or "girl" (بنت)
     val photoUri: String? = null, // Student profile picture URI / local file path
     val audioNoteUri: String? = null,
     val createdAt: Long = System.currentTimeMillis()

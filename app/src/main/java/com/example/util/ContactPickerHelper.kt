@@ -27,71 +27,132 @@ object ContactPickerHelper {
             val contentResolver = context.contentResolver
 
             // 1. Try querying as Phone URI (ContactsContract.CommonDataKinds.Phone)
-            val phoneCursor: Cursor? = contentResolver.query(
-                contactUri,
-                arrayOf(
-                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                    ContactsContract.CommonDataKinds.Phone.NUMBER,
-                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID
-                ),
-                null,
-                null,
-                null
-            )
-
-            phoneCursor?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-
-                    if (nameIndex != -1) {
-                        name = cursor.getString(nameIndex) ?: ""
-                    }
-                    if (numberIndex != -1) {
-                        phoneNumber = cursor.getString(numberIndex) ?: ""
-                    }
-                }
-            }
-
-            // 2. If phone number is empty, fallback to Contacts URI and query Phone table by CONTACT_ID
-            if (phoneNumber.isBlank()) {
-                val contactCursor: Cursor? = contentResolver.query(
+            try {
+                val phoneCursor: Cursor? = contentResolver.query(
                     contactUri,
-                    arrayOf(ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME),
+                    arrayOf(
+                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                        ContactsContract.CommonDataKinds.Phone.NUMBER,
+                        ContactsContract.CommonDataKinds.Phone.CONTACT_ID
+                    ),
                     null,
                     null,
                     null
                 )
 
-                var contactId: String? = null
-                contactCursor?.use { cursor ->
+                phoneCursor?.use { cursor ->
                     if (cursor.moveToFirst()) {
-                        val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
-                        val displayNameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
+                        val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                        val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
 
-                        if (idIndex != -1) {
-                            contactId = cursor.getString(idIndex)
+                        if (nameIndex != -1) {
+                            name = cursor.getString(nameIndex) ?: ""
                         }
-                        if (displayNameIndex != -1 && name.isBlank()) {
-                            name = cursor.getString(displayNameIndex) ?: ""
+                        if (numberIndex != -1) {
+                            phoneNumber = cursor.getString(numberIndex) ?: ""
                         }
                     }
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
 
-                if (!contactId.isNullOrEmpty()) {
-                    val phonesCursor: Cursor? = contentResolver.query(
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                        arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-                        "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                        arrayOf(contactId),
+            // 2. If phone number is empty, fallback to Contacts URI and query Phone table by CONTACT_ID or LOOKUP_KEY
+            if (phoneNumber.isBlank()) {
+                var contactId: String? = null
+                var lookupKey: String? = null
+                try {
+                    val contactCursor: Cursor? = contentResolver.query(
+                        contactUri,
+                        arrayOf(
+                            ContactsContract.Contacts._ID,
+                            ContactsContract.Contacts.LOOKUP_KEY,
+                            ContactsContract.Contacts.DISPLAY_NAME
+                        ),
+                        null,
+                        null,
                         null
                     )
-                    phonesCursor?.use { cursor ->
+
+                    contactCursor?.use { cursor ->
                         if (cursor.moveToFirst()) {
-                            val numIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                            if (numIndex != -1) {
-                                phoneNumber = cursor.getString(numIndex) ?: ""
+                            val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
+                            val lookupIndex = cursor.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY)
+                            val displayNameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
+
+                            if (idIndex != -1) {
+                                contactId = cursor.getString(idIndex)
                             }
+                            if (lookupIndex != -1) {
+                                lookupKey = cursor.getString(lookupIndex)
+                            }
+                            if (displayNameIndex != -1 && name.isBlank()) {
+                                name = cursor.getString(displayNameIndex) ?: ""
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                if (!contactId.isNullOrEmpty()) {
+                    try {
+                        val phonesCursor: Cursor? = contentResolver.query(
+                            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            arrayOf(
+                                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+                            ),
+                            "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                            arrayOf(contactId),
+                            null
+                        )
+                        phonesCursor?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val numIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                                if (numIndex != -1) {
+                                    phoneNumber = cursor.getString(numIndex) ?: ""
+                                }
+                                if (nameIndex != -1 && name.isBlank()) {
+                                    name = cursor.getString(nameIndex) ?: ""
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                // 3. If still empty, try generic Data query with URI id
+                if (phoneNumber.isBlank()) {
+                    val uriLastSegment = contactUri.lastPathSegment
+                    if (!uriLastSegment.isNullOrEmpty()) {
+                        try {
+                            val dataCursor: Cursor? = contentResolver.query(
+                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                arrayOf(
+                                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+                                ),
+                                "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ? OR ${ContactsContract.CommonDataKinds.Phone._ID} = ?",
+                                arrayOf(uriLastSegment, uriLastSegment),
+                                null
+                            )
+                            dataCursor?.use { cursor ->
+                                if (cursor.moveToFirst()) {
+                                    val numIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                    val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                                    if (numIndex != -1) {
+                                        phoneNumber = cursor.getString(numIndex) ?: ""
+                                    }
+                                    if (nameIndex != -1 && name.isBlank()) {
+                                        name = cursor.getString(nameIndex) ?: ""
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
                     }
                 }

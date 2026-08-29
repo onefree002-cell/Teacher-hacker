@@ -37,7 +37,7 @@ import com.example.util.WhatsAppHelper
 @Composable
 fun ScheduleScreen(
     viewModel: ScheduleViewModel,
-    onNavigateToAttendance: () -> Unit,
+    onNavigateToAttendance: (groupId: Long, date: String) -> Unit,
     onNavigateBack: (() -> Unit)? = null,
     onNavigateHome: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -175,121 +175,123 @@ fun ScheduleScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Days selector row with count badges
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(daysOfWeek) { (key, label) ->
-                    val count = if (key == "all") {
-                        state.sessionsWithGroups.size
-                    } else {
-                        state.sessionsWithGroups.count { it.session.day.contains(key) }
-                    }
-                    FilterChip(
-                        selected = state.selectedDay == key,
-                        onClick = { viewModel.onDaySelected(key) },
-                        label = {
-                            Text(if (count > 0) "$label ($count)" else label)
-                        },
-                        leadingIcon = if (state.selectedDay == key) {
-                            { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                        } else null,
-                        modifier = Modifier.testTag("schedule_day_$key")
-                    )
-                }
-            }
-
-            // Summary Info Header Bar
-            val totalMinutes = state.filteredSessions.sumOf { it.session.durationMinutes }
-            val totalHours = String.format("%.1f", totalMinutes / 60.0)
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
+            // Days selector row with count badges (shown in Cards and Timetable views)
+            if (state.viewMode != ScheduleViewMode.MONTHLY_CALENDAR) {
+                LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.AccessTime,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "${state.filteredSessions.size} حصص • $totalHours ساعة",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
+                    items(daysOfWeek) { (key, label) ->
+                        val count = if (key == "all") {
+                            state.sessionsWithGroups.size
+                        } else {
+                            state.sessionsWithGroups.count { it.session.day.contains(key) }
+                        }
+                        FilterChip(
+                            selected = state.selectedDay == key,
+                            onClick = { viewModel.onDaySelected(key) },
+                            label = {
+                                Text(if (count > 0) "$label ($count)" else label)
+                            },
+                            leadingIcon = if (state.selectedDay == key) {
+                                { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                            } else null,
+                            modifier = Modifier.testTag("schedule_day_$key")
                         )
                     }
+                }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        // School Bell & Alerts Quick Button
-                        FilledTonalButton(
-                            onClick = { showAlarmSettingsDialog = true },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = NavyPrimary.copy(alpha = 0.12f),
-                                contentColor = NavyPrimary
-                            ),
-                            modifier = Modifier.height(30.dp).testTag("quick_school_bell_btn")
-                        ) {
-                            Icon(Icons.Filled.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("جرس الحصص", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                // Summary Info Header Bar
+                val totalMinutes = state.filteredSessions.sumOf { it.session.durationMinutes }
+                val totalHours = String.format("%.1f", totalMinutes / 60.0)
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.AccessTime,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "${state.filteredSessions.size} حصص • $totalHours ساعة",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         }
 
-                        // Quick Share All Day Schedule on WhatsApp
-                        TextButton(
-                            onClick = {
-                                val scheduleText = buildString {
-                                    appendLine("📅 *جدول الحصص والمواعيد*")
-                                    appendLine("👨‍🏫 المعلم: ${state.teacher.name.ifEmpty { "عبده أيمن" }}")
-                                    if (state.selectedDay != "all") appendLine("📆 يوم: ${state.selectedDay}")
-                                    appendLine("───────────────")
-                                    state.filteredSessions.forEachIndexed { i, item ->
-                                        appendLine("${i + 1}. *${item.groupName}*")
-                                        appendLine("   ⏰ الموعد: ${item.session.day} - ${item.session.time} (${item.session.durationMinutes} دقيقة)")
-                                        appendLine("   📍 المقر: ${item.location.ifEmpty { item.session.location }}")
-                                        if (item.session.homeworkTitle.isNotEmpty()) {
-                                            appendLine("   📚 الواجب: ${item.session.homeworkTitle}")
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            // School Bell & Alerts Quick Button
+                            FilledTonalButton(
+                                onClick = { showAlarmSettingsDialog = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = NavyPrimary.copy(alpha = 0.12f),
+                                    contentColor = NavyPrimary
+                                ),
+                                modifier = Modifier.height(30.dp).testTag("quick_school_bell_btn")
+                            ) {
+                                Icon(Icons.Filled.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("جرس الحصص", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                            }
+
+                            // Quick Share All Day Schedule on WhatsApp
+                            TextButton(
+                                onClick = {
+                                    val scheduleText = buildString {
+                                        appendLine("📅 *جدول الحصص والمواعيد*")
+                                        appendLine("👨‍🏫 المعلم: ${state.teacher.name.ifEmpty { "عبده أيمن" }}")
+                                        if (state.selectedDay != "all") appendLine("📆 يوم: ${state.selectedDay}")
+                                        appendLine("───────────────")
+                                        state.filteredSessions.forEachIndexed { i, item ->
+                                            appendLine("${i + 1}. *${item.groupName}*")
+                                            appendLine("   ⏰ الموعد: ${item.session.day} - ${item.session.time} (${item.session.durationMinutes} دقيقة)")
+                                            appendLine("   📍 المقر: ${item.location.ifEmpty { item.session.location }}")
+                                            if (item.session.homeworkTitle.isNotEmpty()) {
+                                                appendLine("   📚 الواجب: ${item.session.homeworkTitle}")
+                                            }
+                                            appendLine("")
                                         }
-                                        appendLine("")
+                                        appendLine("📞 للتواصل: ${state.teacher.phone.ifEmpty { "01206150946" }}")
                                     }
-                                    appendLine("📞 للتواصل: ${state.teacher.phone.ifEmpty { "01206150946" }}")
-                                }
-                                WhatsAppHelper.openWhatsApp(context, "", scheduleText)
-                            },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            modifier = Modifier.height(30.dp)
-                        ) {
-                            Icon(Icons.Filled.Share, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("مشاركة الجدول", style = MaterialTheme.typography.labelSmall, color = EmeraldSuccess)
-                        }
+                                    WhatsAppHelper.openWhatsApp(context, "", scheduleText)
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(30.dp)
+                            ) {
+                                Icon(Icons.Filled.Share, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("مشاركة الجدول", style = MaterialTheme.typography.labelSmall, color = EmeraldSuccess)
+                            }
 
-                        // Print PDF action button in banner
-                        FilledTonalButton(
-                            onClick = { viewModel.printSchedulePdf(context) },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(30.dp)
-                        ) {
-                            Icon(Icons.Filled.Print, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("طباعة PDF", style = MaterialTheme.typography.labelSmall)
+                            // Print PDF action button in banner
+                            FilledTonalButton(
+                                onClick = { viewModel.printSchedulePdf(context) },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(30.dp)
+                            ) {
+                                Icon(Icons.Filled.Print, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("طباعة PDF", style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
                 }
@@ -310,6 +312,9 @@ fun ScheduleScreen(
                         onEditSession = { sessionToEdit = it },
                         onToggleCompletion = { viewModel.toggleSessionCompletion(it) },
                         onDeleteSession = { sessionToDelete = it },
+                        onTakeAttendance = { groupId, date ->
+                            onNavigateToAttendance(groupId, date)
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -503,7 +508,7 @@ fun ScheduleScreen(
 
                                         Row {
                                             FilledTonalButton(
-                                                onClick = onNavigateToAttendance,
+                                                onClick = { onNavigateToAttendance(sess.groupId, sess.date) },
                                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                                 shape = RoundedCornerShape(8.dp)
                                             ) {
@@ -676,7 +681,7 @@ fun ScheduleScreen(
 
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 IconButton(
-                                                    onClick = onNavigateToAttendance,
+                                                    onClick = { onNavigateToAttendance(sItem.session.groupId, sItem.session.date) },
                                                     modifier = Modifier.size(32.dp)
                                                 ) {
                                                     Icon(Icons.Filled.FactCheck, contentDescription = "حضور", tint = EmeraldSuccess, modifier = Modifier.size(18.dp))

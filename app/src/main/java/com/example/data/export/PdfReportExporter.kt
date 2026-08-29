@@ -251,18 +251,23 @@ class PdfReportExporter {
         teacher: TeacherEntity?,
         studentName: String,
         groupName: String,
-        settings: CertificateSettingEntity
+        settings: CertificateSettingEntity,
+        gender: String = "boy"
     ): File {
         val pdfDocument = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(842, 595, 1).create() // A4 Landscape
         val page = pdfDocument.startPage(pageInfo)
-        renderCertificateLandscape(page.canvas, teacher, studentName, groupName, settings)
+        renderCertificateLandscape(page.canvas, teacher, studentName, groupName, settings, gender)
         pdfDocument.finishPage(page)
 
         val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val exportDir = File(context.cacheDir, "certificates")
-        if (!exportDir.exists()) exportDir.mkdirs()
-        val certFile = File(exportDir, "Certificate_${studentName.replace(" ", "_")}_$dateStr.pdf")
+        val exportDir = try {
+            com.example.util.TeacherHackerDirectoryManager.getCertificatesDir(context)
+        } catch (_: Exception) {
+            File(context.cacheDir, "certificates").apply { if (!exists()) mkdirs() }
+        }
+        val cleanName = studentName.replace(" ", "_")
+        val certFile = File(exportDir, "شهادة_تقدير_${cleanName}_$dateStr.pdf")
 
         FileOutputStream(certFile).use { fos ->
             pdfDocument.writeTo(fos)
@@ -278,7 +283,8 @@ class PdfReportExporter {
         context: Context,
         teacher: TeacherEntity?,
         studentsWithGroup: List<Pair<String, String>>, // List of Pair(studentName, groupName)
-        settings: CertificateSettingEntity
+        settings: CertificateSettingEntity,
+        genderMap: Map<String, String> = emptyMap()
     ): File {
         val pdfDocument = PdfDocument()
         var pageNum = 1
@@ -286,15 +292,19 @@ class PdfReportExporter {
         for ((studentName, groupName) in studentsWithGroup) {
             val pageInfo = PdfDocument.PageInfo.Builder(842, 595, pageNum).create()
             val page = pdfDocument.startPage(pageInfo)
-            renderCertificateLandscape(page.canvas, teacher, studentName, groupName, settings)
+            val gender = genderMap[studentName] ?: "boy"
+            renderCertificateLandscape(page.canvas, teacher, studentName, groupName, settings, gender)
             pdfDocument.finishPage(page)
             pageNum++
         }
 
         val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val exportDir = File(context.cacheDir, "certificates")
-        if (!exportDir.exists()) exportDir.mkdirs()
-        val batchCertFile = File(exportDir, "Batch_Certificates_${pageNum - 1}_Students_$dateStr.pdf")
+        val exportDir = try {
+            com.example.util.TeacherHackerDirectoryManager.getCertificatesDir(context)
+        } catch (_: Exception) {
+            File(context.cacheDir, "certificates").apply { if (!exists()) mkdirs() }
+        }
+        val batchCertFile = File(exportDir, "شهادات_مجمعة_${pageNum - 1}_طالب_$dateStr.pdf")
 
         FileOutputStream(batchCertFile).use { fos ->
             pdfDocument.writeTo(fos)
@@ -1113,9 +1123,11 @@ class PdfReportExporter {
         teacher: TeacherEntity?,
         studentName: String,
         groupName: String,
-        settings: CertificateSettingEntity
+        settings: CertificateSettingEntity,
+        gender: String = "boy"
     ) {
         val template = settings.templateId
+        val isGirl = gender == "girl" || gender == "female"
 
         // Theme-specific colors & styles
         val palette = when (template) {
@@ -1262,15 +1274,17 @@ class PdfReportExporter {
             color = textSecondaryCol
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText(settings.subtitle.ifEmpty { "تقديراً للجهد المتميز والأداء الرائع في الفصل الدراسي" }, 842f / 2f, 188f, subPaint)
+        val defaultSub = if (isGirl) "تقديراً للجهد المتميز والأداء الرائع في الفصل الدراسي" else "تقديراً للجهد المتميز والأداء الرائع في الفصل الدراسي"
+        canvas.drawText(settings.subtitle.ifEmpty { defaultSub }, 842f / 2f, 188f, subPaint)
 
-        // 7. Preamble text
+        // 7. Preamble text (Gender-aware)
         val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = 13.5f
             color = textPrimaryCol
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("يسرنا ويسعدنا منح هذه الشهادة التقديرية إلى الطالب المتميز:", 842f / 2f, 235f, bodyPaint)
+        val preamble = if (isGirl) "يسرنا ويسعدنا منح هذه الشهادة التقديرية إلى الطالبة المتميزة:" else "يسرنا ويسعدنا منح هذه الشهادة التقديرية إلى الطالب المتميز:"
+        canvas.drawText(preamble, 842f / 2f, 235f, bodyPaint)
 
         // 8. Student Name Highlight Ribbon Card
         val nameBannerPaint = Paint().apply {
@@ -1292,14 +1306,16 @@ class PdfReportExporter {
         }
         canvas.drawText(studentName, 842f / 2f, 301f, namePaint)
 
-        // 9. Group and Praise Body Template
-        val groupLine = if (groupName.isNotEmpty()) "المقيد بـ: $groupName" else ""
+        // 9. Group and Praise Body Template (Gender-aware)
+        val groupLine = if (groupName.isNotEmpty()) (if (isGirl) "المقيدة بـ: $groupName" else "المقيد بـ: $groupName") else ""
         if (groupLine.isNotEmpty()) {
             canvas.drawText(groupLine, 842f / 2f, 355f, bodyPaint.apply { textSize = 13f })
         }
-        val bodyMsg = settings.bodyTemplate.ifEmpty { "تقديراً لتفوقه العلمي ومواظبته على أداء الواجبات والامتحانات بتفوق مستمر" }
+        val defaultPraise = if (isGirl) "تقديراً لتفوقها العلمي ومواظبتها على أداء الواجبات والامتحانات بتفوق مستمر" else "تقديراً لتفوقه العلمي ومواظبته على أداء الواجبات والامتحانات بتفوق مستمر"
+        val bodyMsg = settings.bodyTemplate.ifEmpty { defaultPraise }
         canvas.drawText(bodyMsg, 842f / 2f, 388f, bodyPaint.apply { textSize = 13f })
-        canvas.drawText("متمنين له دوام النجاح والتميز والارتقاء إلى أعلى المراتب العلمية", 842f / 2f, 415f, bodyPaint)
+        val wishLine = if (isGirl) "متمنين لها دوام النجاح والتميز والارتقاء إلى أعلى المراتب العلمية" else "متمنين له دوام النجاح والتميز والارتقاء إلى أعلى المراتب العلمية"
+        canvas.drawText(wishLine, 842f / 2f, 415f, bodyPaint)
 
         // 10. Golden Seal / Badge on Left/Center
         if (settings.showSeal) {

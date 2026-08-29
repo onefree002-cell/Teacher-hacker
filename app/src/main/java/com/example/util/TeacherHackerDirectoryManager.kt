@@ -25,8 +25,21 @@ object TeacherHackerDirectoryManager {
     const val FOLDER_BACKUPS = "النسخ_الاحتياطية_Backups"
     const val FOLDER_SESSIONS = "حصص_المجموعات"
     const val FOLDER_REPORTS_PDF = "تقارير_وكارنيهات_PDF"
+    const val FOLDER_CERTIFICATES = "شهادات_التقدير_Certificates"
     const val FOLDER_STUDY_FILES = "الكتب_والمذكرات_StudyFiles"
     const val FOLDER_HOMEWORK_SCANS = "تصوير_الواجب_Scans"
+
+    /**
+     * Certificates Directory: DOCUMENTS / TEACHER HACKER / شهادات_التقدير_Certificates
+     */
+    fun getCertificatesDir(context: Context): File {
+        val root = getTeacherHackerRootDir(context)
+        val dir = File(root, FOLDER_CERTIFICATES)
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
 
     /**
      * Primary root directory: DOCUMENTS / TEACHER HACKER

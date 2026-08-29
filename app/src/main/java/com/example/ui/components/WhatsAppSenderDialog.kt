@@ -68,6 +68,7 @@ fun WhatsAppSenderDialog(
         homeworkTitle = homeworkTitle,
         homeworkPages = homeworkPages,
         homeworkDeadline = homeworkDeadline,
+        gender = student.gender,
         defaultTemplate = template,
         onDismiss = onDismiss
     )
@@ -88,6 +89,7 @@ fun WhatsAppSenderDialog(
     homeworkTitle: String = "",
     homeworkPages: String = "",
     homeworkDeadline: String = "",
+    gender: String = "boy",
     defaultTemplate: WhatsAppTemplateType = WhatsAppTemplateType.ABSENCE,
     onDismiss: () -> Unit
 ) {
@@ -111,7 +113,8 @@ fun WhatsAppSenderDialog(
                 monthName = monthName,
                 homeworkTitle = homeworkTitle,
                 homeworkPages = homeworkPages,
-                homeworkDeadline = homeworkDeadline
+                homeworkDeadline = homeworkDeadline,
+                gender = gender
             )
         )
     }
@@ -130,7 +133,8 @@ fun WhatsAppSenderDialog(
             monthName = monthName,
             homeworkTitle = homeworkTitle,
             homeworkPages = homeworkPages,
-            homeworkDeadline = homeworkDeadline
+            homeworkDeadline = homeworkDeadline,
+            gender = gender
         )
     }
 
@@ -328,44 +332,51 @@ private fun generateInitialMessage(
     monthName: String,
     homeworkTitle: String,
     homeworkPages: String,
-    homeworkDeadline: String
+    homeworkDeadline: String,
+    gender: String = "boy"
 ): String {
     val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+    val isGirl = gender == "girl" || gender == "female"
     return when (template) {
         WhatsAppTemplateType.ABSENCE -> WhatsAppHelper.createAbsenceMessage(
             studentName = studentName,
             date = date,
             groupName = if (groupName.isNotBlank()) groupName else "المجموعة التعليمية",
-            teacherName = teacherName
+            teacherName = teacherName,
+            gender = gender
         )
         WhatsAppTemplateType.EXAM_GRADE -> WhatsAppHelper.createExamGradeMessage(
             studentName = studentName,
             examTitle = if (examTitle.isNotBlank()) examTitle else "الامتحان الشهري",
             score = examScore,
             maxScore = examMaxScore,
-            teacherName = teacherName
+            teacherName = teacherName,
+            gender = gender
         )
         WhatsAppTemplateType.PAYMENT_REMINDER -> WhatsAppHelper.createPaymentReminderMessage(
             studentName = studentName,
             remainingAmount = if (remainingAmount > 0) remainingAmount else 100.0,
             monthName = if (monthName.isNotBlank()) monthName else "الشهر الحالي",
-            teacherName = teacherName
+            teacherName = teacherName,
+            gender = gender
         )
         WhatsAppTemplateType.HOMEWORK -> WhatsAppHelper.createHomeworkReminderMessage(
             studentName = studentName,
             homeworkTitle = if (homeworkTitle.isNotBlank()) homeworkTitle else "حل أسئلة الدرس",
             pages = homeworkPages,
             deadline = homeworkDeadline,
-            teacherName = teacherName
+            teacherName = teacherName,
+            gender = gender
         )
         WhatsAppTemplateType.EXCELLENCE -> WhatsAppHelper.createExcellenceMessage(
             studentName = studentName,
             achievementText = "التفوق والالتزام المتميز في الحصص والامتحانات",
-            teacherName = teacherName
+            teacherName = teacherName,
+            gender = gender
         )
         WhatsAppTemplateType.CUSTOM -> """
 السلام عليكم ورحمة الله وبركاته،
-ولي أمر الطالب / $studentName
+${if (isGirl) "ولي أمر الطالبة المحترمة / $studentName" else "ولي أمر الطالب المحترم / $studentName"}
 
 نود إحاطتكم بالتالي:
 

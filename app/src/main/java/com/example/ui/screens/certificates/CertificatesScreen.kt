@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.*
 import com.example.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -49,6 +50,29 @@ fun CertificatesScreen(
     var studentDropdownExpanded by remember { mutableStateOf(false) }
     var groupDropdownExpanded by remember { mutableStateOf(false) }
     var removeBgSwitch by remember { mutableStateOf(state.setting.removeLogoBackground) }
+
+    // Smooth local state for form text inputs to prevent typing lag / resets
+    var localStudentName by remember(state.selectedStudentName) { mutableStateOf(state.selectedStudentName) }
+    var localSchoolName by remember(state.setting.schoolName) { mutableStateOf(state.setting.schoolName) }
+    var localTitle by remember(state.setting.title) { mutableStateOf(state.setting.title) }
+    var localBodyTemplate by remember(state.setting.bodyTemplate) { mutableStateOf(state.setting.bodyTemplate) }
+    var localSignatureName by remember(state.setting.signatureName) { mutableStateOf(state.setting.signatureName) }
+    var localSealText by remember(state.setting.sealText) { mutableStateOf(state.setting.sealText) }
+
+    // Debounce save settings to database without interrupting typing
+    LaunchedEffect(localSchoolName, localTitle, localBodyTemplate, localSignatureName, localSealText) {
+        delay(400)
+        val updated = state.setting.copy(
+            schoolName = localSchoolName,
+            title = localTitle,
+            bodyTemplate = localBodyTemplate,
+            signatureName = localSignatureName,
+            sealText = localSealText
+        )
+        if (updated != state.setting) {
+            viewModel.updateSetting(updated)
+        }
+    }
 
     // Logo image picker launcher
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -74,6 +98,7 @@ fun CertificatesScreen(
     )
 
     val currentTheme = themes.find { it.id == state.setting.templateId } ?: themes[0]
+    val isGirl = state.selectedGender == "girl" || state.selectedGender == "female"
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -97,7 +122,7 @@ fun CertificatesScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(vertical = 14.dp)
         ) {
-            // Live Certificate Preview Card
+            // Live Certificate Preview Card (Gender-Aware)
             item {
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -143,21 +168,21 @@ fun CertificatesScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = state.setting.schoolName.ifEmpty { state.teacher?.centerName ?: "أكاديمية التفوق التعليمية" },
+                            text = localSchoolName.ifEmpty { state.teacher?.centerName ?: "أكاديمية التفوق التعليمية" },
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                             color = if (currentTheme.id == "dark_onyx_gold") currentTheme.accentColor else Color.Gray,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = state.setting.title.ifEmpty { "شهادة تفوق وتقدير" },
+                            text = localTitle.ifEmpty { "شهادة تفوق وتقدير" },
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = if (currentTheme.id == "dark_onyx_gold") Color.White else currentTheme.primaryColor,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "تُمنح هذه الشهادة للطالب المتميز:",
+                            text = if (isGirl) "تُمنح هذه الشهادة للطالبة المتميزة:" else "تُمنح هذه الشهادة للطالب المتميز:",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (currentTheme.id == "dark_onyx_gold") Color.LightGray else Color.DarkGray
                         )
@@ -171,7 +196,7 @@ fun CertificatesScreen(
                             modifier = Modifier.padding(horizontal = 16.dp)
                         ) {
                             Text(
-                                text = state.selectedStudentName.ifEmpty { "اختر طالباً" },
+                                text = localStudentName.ifEmpty { "اسم الطالب" },
                                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                                 color = currentTheme.accentColor,
                                 textAlign = TextAlign.Center,
@@ -182,14 +207,15 @@ fun CertificatesScreen(
                         if (state.selectedGroupName.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "مجموعة: ${state.selectedGroupName}",
+                                text = if (isGirl) "المقيدة بـ: ${state.selectedGroupName}" else "المقيد بـ: ${state.selectedGroupName}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (currentTheme.id == "dark_onyx_gold") Color.Gray else Color.DarkGray
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
+                        val defaultPraiseText = if (isGirl) "تقديراً لجهودها المتميزة وتفوقها الدراسي والأخلاقي في المادة" else "تقديراً لجهوده المتميزة وتفوقه الدراسي والأخلاقي في المادة"
                         Text(
-                            text = state.setting.bodyTemplate.ifEmpty { "تقديراً لجهوده المتميزة وتفوقه الدراسي والأخلاقي في المادة" },
+                            text = localBodyTemplate.ifEmpty { defaultPraiseText },
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             color = if (currentTheme.id == "dark_onyx_gold") Color.LightGray else Color.DarkGray
@@ -201,15 +227,113 @@ fun CertificatesScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "ختم الاعتماد: ${state.setting.sealText}",
+                                text = "ختم الاعتماد: ${localSealText.ifEmpty { "معتمد" }}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = currentTheme.accentColor
                             )
                             Text(
-                                text = "التوقيع: ${state.setting.signatureName.ifEmpty { state.teacher?.name ?: "أستاذ المادة" }}",
+                                text = "التوقيع: ${localSignatureName.ifEmpty { state.teacher?.name ?: "أستاذ المادة" }}",
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                 color = if (currentTheme.id == "dark_onyx_gold") Color.White else currentTheme.primaryColor
                             )
+                        }
+                    }
+                }
+            }
+
+            // Student Selection & Gender Card
+            item {
+                SectionHeader(title = "بيانات الطالب والنوع (ولد / بنت)")
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Gender Selector Buttons (ولد / بنت)
+                        Text(
+                            text = "نوع الطالب (لصياغة الخطاب المؤنث أو المذكر):",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            FilterChip(
+                                selected = !isGirl,
+                                onClick = { viewModel.setGender("boy") },
+                                label = { Text("👦 طالب (مذكر)") },
+                                leadingIcon = {
+                                    if (!isGirl) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                                modifier = Modifier.weight(1f).testTag("gender_boy_cert")
+                            )
+                            FilterChip(
+                                selected = isGirl,
+                                onClick = { viewModel.setGender("girl") },
+                                label = { Text("👧 طالبة (مؤنث)") },
+                                leadingIcon = {
+                                    if (isGirl) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                                modifier = Modifier.weight(1f).testTag("gender_girl_cert")
+                            )
+                        }
+
+                        Divider(color = Color.LightGray.copy(alpha = 0.4f))
+
+                        // Student Name Editable Field
+                        OutlinedTextField(
+                            value = localStudentName,
+                            onValueChange = {
+                                localStudentName = it
+                                viewModel.setStudentName(it)
+                            },
+                            label = { Text("اسم الطالب المكرم (يمكن كتابته مباشرة أو اختياره من القائمة)") },
+                            singleLine = true,
+                            trailingIcon = {
+                                IconButton(onClick = { studentDropdownExpanded = !studentDropdownExpanded }) {
+                                    Icon(Icons.Filled.ArrowDropDown, contentDescription = "قائمة الطلاب")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("cert_student_name_input")
+                        )
+
+                        // Quick Pick Student Dropdown
+                        if (studentDropdownExpanded && state.students.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)
+                            ) {
+                                LazyColumn {
+                                    items(state.students) { s ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(s.name, fontWeight = FontWeight.SemiBold)
+                                                    Text(
+                                                        if (s.gender == "girl") "👧 طالبة" else "👦 طالب",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = Color.Gray
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                viewModel.selectStudent(s.id)
+                                                localStudentName = s.name
+                                                studentDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -351,39 +475,6 @@ fun CertificatesScreen(
                 }
             }
 
-            // Student Selection
-            item {
-                SectionHeader(title = "اختيار الطالب المكرم")
-                ExposedDropdownMenuBox(
-                    expanded = studentDropdownExpanded,
-                    onExpandedChange = { studentDropdownExpanded = it }
-                ) {
-                    val sName = state.selectedStudentName.ifEmpty { "اختر الطالب" }
-                    OutlinedTextField(
-                        value = sName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("الطالب المكرم") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = studentDropdownExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth().testTag("cert_student_picker")
-                    )
-                    ExposedDropdownMenu(
-                        expanded = studentDropdownExpanded,
-                        onDismissRequest = { studentDropdownExpanded = false }
-                    ) {
-                        state.students.forEach { s ->
-                            DropdownMenuItem(
-                                text = { Text(s.name) },
-                                onClick = {
-                                    viewModel.selectStudent(s.id)
-                                    studentDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
             // Certificate Details Customizer
             item {
                 SectionHeader(title = "تخصيص نصوص وتوقيع الشهادة")
@@ -398,24 +489,24 @@ fun CertificatesScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         OutlinedTextField(
-                            value = state.setting.schoolName,
-                            onValueChange = { viewModel.updateSetting(state.setting.copy(schoolName = it)) },
+                            value = localSchoolName,
+                            onValueChange = { localSchoolName = it },
                             label = { Text("اسم السنتر / الأكاديمية أعلى الشهادة") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         OutlinedTextField(
-                            value = state.setting.title,
-                            onValueChange = { viewModel.updateSetting(state.setting.copy(title = it)) },
+                            value = localTitle,
+                            onValueChange = { localTitle = it },
                             label = { Text("عنوان الشهادة الرئيسي") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().testTag("cert_title_input")
                         )
 
                         OutlinedTextField(
-                            value = state.setting.bodyTemplate,
-                            onValueChange = { viewModel.updateSetting(state.setting.copy(bodyTemplate = it)) },
+                            value = localBodyTemplate,
+                            onValueChange = { localBodyTemplate = it },
                             label = { Text("نص الثناء والتقدير") },
                             maxLines = 3,
                             modifier = Modifier.fillMaxWidth().testTag("cert_body_input")
@@ -426,15 +517,15 @@ fun CertificatesScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedTextField(
-                                value = state.setting.signatureName,
-                                onValueChange = { viewModel.updateSetting(state.setting.copy(signatureName = it)) },
+                                value = localSignatureName,
+                                onValueChange = { localSignatureName = it },
                                 label = { Text("اسم المدرس") },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f).testTag("cert_signature_input")
                             )
                             OutlinedTextField(
-                                value = state.setting.sealText,
-                                onValueChange = { viewModel.updateSetting(state.setting.copy(sealText = it)) },
+                                value = localSealText,
+                                onValueChange = { localSealText = it },
                                 label = { Text("نص الختم") },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
@@ -448,9 +539,20 @@ fun CertificatesScreen(
             item {
                 Button(
                     onClick = {
+                        // Ensure settings are synced before export
+                        viewModel.updateSetting(
+                            state.setting.copy(
+                                schoolName = localSchoolName,
+                                title = localTitle,
+                                bodyTemplate = localBodyTemplate,
+                                signatureName = localSignatureName,
+                                sealText = localSealText
+                            )
+                        )
+                        viewModel.setStudentName(localStudentName)
                         viewModel.generateAndShareCertificate(context)
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("تم إنشاء ومشاركة شهادة التقدير بنجاح")
+                            snackbarHostState.showSnackbar("تم إنشاء وحفظ شهادة التقدير بنجاح")
                         }
                     },
                     shape = RoundedCornerShape(12.dp),
@@ -480,7 +582,7 @@ fun CertificatesScreen(
                             color = EmeraldSuccess
                         )
                         Text(
-                            text = "توليد ملف PDF مجمع يحتوي على شهادات لكل طلاب المجموعة المحددة بنقرة واحدة لتوفير الوقت والطباعة السريعة.",
+                            text = "توليد ملف PDF مجمع يحتوي على شهادات لكل طلاب المجموعة المحددة بنقرة واحدة لتوفير الوقت والطباعة السريعة بمراعاة نوع كل طالب.",
                             style = MaterialTheme.typography.bodySmall
                         )
 
@@ -548,7 +650,7 @@ fun CertificatesScreen(
 private data class ThemeOption(
     val id: String,
     val name: String,
-    val accentColor: Color,
     val primaryColor: Color,
+    val accentColor: Color,
     val bgColor: Color
 )

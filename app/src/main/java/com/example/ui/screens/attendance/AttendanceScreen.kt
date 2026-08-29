@@ -56,6 +56,8 @@ import java.util.*
 @Composable
 fun AttendanceScreen(
     viewModel: AttendanceViewModel,
+    initialGroupId: Long = 0L,
+    initialDate: String = "",
     onNavigateBack: (() -> Unit)? = null,
     onNavigateHome: (() -> Unit)? = null,
     onNavigateToGroup: ((Long) -> Unit)? = null,
@@ -65,6 +67,15 @@ fun AttendanceScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    LaunchedEffect(initialGroupId, initialDate) {
+        if (initialGroupId > 0L) {
+            viewModel.onGroupSelected(initialGroupId)
+        }
+        if (initialDate.isNotBlank()) {
+            viewModel.onDateSelected(initialDate)
+        }
+    }
 
     // 0 = Attendance (تسجيل الحضور والغياب), 1 = Homework Scanner (تصوير وتوثيق الواجب), 2 = Extra Tools (أدوات إضافية)
     var selectedMainTab by remember { mutableIntStateOf(0) }

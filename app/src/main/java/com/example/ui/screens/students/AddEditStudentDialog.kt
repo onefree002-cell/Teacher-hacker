@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -59,6 +60,7 @@ fun AddEditStudentDialog(
     var parentPhone by remember { mutableStateOf(student?.parentPhone ?: "") }
     var address by remember { mutableStateOf(student?.address ?: "") }
     var status by remember { mutableStateOf(student?.status ?: "active") }
+    var gender by remember { mutableStateOf(student?.gender ?: "boy") }
     var isExempt by remember { mutableStateOf(student?.isExempt ?: false) }
     var discountPercent by remember { mutableStateOf(student?.discountPercent?.toString() ?: "0") }
     var tags by remember { mutableStateOf(student?.tags ?: "") }
@@ -247,6 +249,89 @@ fun AddEditStudentDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("student_name_input")
                 )
+
+                // 2.2. Gender Selection (تحديد النوع: ولد / بنت)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "نوع الطالب (لضبط صيغة المخاطبة والرسائل والشهادات):",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (gender == "boy") NavyPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(
+                                width = if (gender == "boy") 2.dp else 1.dp,
+                                color = if (gender == "boy") NavyPrimary else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { gender = "boy" }
+                                .testTag("select_boy_btn")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                RadioButton(
+                                    selected = gender == "boy",
+                                    onClick = { gender = "boy" },
+                                    colors = RadioButtonDefaults.colors(selectedColor = NavyPrimary)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "طالب (ولد) 👦",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = if (gender == "boy") FontWeight.Bold else FontWeight.Normal,
+                                        color = if (gender == "boy") NavyPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (gender == "girl") Color(0xFFBE185D).copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(
+                                width = if (gender == "girl") 2.dp else 1.dp,
+                                color = if (gender == "girl") Color(0xFFBE185D) else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { gender = "girl" }
+                                .testTag("select_girl_btn")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                RadioButton(
+                                    selected = gender == "girl",
+                                    onClick = { gender = "girl" },
+                                    colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFBE185D))
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "طالبة (بنت) 👧",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = if (gender == "girl") FontWeight.Bold else FontWeight.Normal,
+                                        color = if (gender == "girl") Color(0xFFBE185D) else MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
 
                 // 2.5. Student Code / Barcode (كود الطالب / الباركود)
                 OutlinedTextField(
@@ -522,6 +607,7 @@ fun AddEditStudentDialog(
                         discountPercent = discountPercent.toDoubleOrNull() ?: 0.0,
                         barcodeCode = finalBarcode,
                         tags = tags.trim(),
+                        gender = gender,
                         audioNoteUri = student?.audioNoteUri,
                         createdAt = student?.createdAt ?: System.currentTimeMillis()
                     )

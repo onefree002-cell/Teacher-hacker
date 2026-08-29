@@ -396,18 +396,18 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = Color(0xFF8E9F88), // Authentic Casio Gray-Green LCD tint
-                border = BorderStroke(3.dp, Color(0xFF0F172A)),
-                shadowElevation = 6.dp,
+                border = BorderStroke(2.5.dp, Color(0xFF0F172A)),
+                shadowElevation = 4.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(105.dp)
+                    .height(82.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .testTag("casio_lcd_screen")
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     // LCD Top Status Flag Line
@@ -416,14 +416,14 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                             // Shift Indicator
                             if (isShiftActive) {
-                                Text("S", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color(0xFF92400E))
+                                Text("S", fontWeight = FontWeight.Black, fontSize = 10.sp, color = Color(0xFF92400E))
                             }
                             // Alpha Indicator
                             if (isAlphaActive) {
-                                Text("A", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color(0xFF991B1B))
+                                Text("A", fontWeight = FontWeight.Black, fontSize = 10.sp, color = Color(0xFF991B1B))
                             }
                             // Mode Indicator
                             Surface(
@@ -433,14 +433,14 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                                 Text(
                                     text = currentMode.modeName,
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.sp,
                                     color = Color(0xFF0F172A),
                                     modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
                                 )
                             }
                             // Memory Indicator
                             if (memoryValue != 0.0) {
-                                Text("M", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = Color(0xFF1E293B))
+                                Text("M", fontWeight = FontWeight.Bold, fontSize = 9.sp, color = Color(0xFF1E293B))
                             }
                             // Angle Mode Indicator
                             Text(
@@ -450,11 +450,11 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                                     else -> "D"
                                 },
                                 fontWeight = FontWeight.Black,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 color = Color(0xFF0F172A)
                             )
                             // Math Display Symbol
-                            Text("Math ▲▼", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                            Text("Math ▲▼", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
                         }
 
                         // Mode Switcher trigger on screen
@@ -467,7 +467,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                                 Text(
                                     text = "MODE",
                                     color = Color(0xFFF8FAFC),
-                                    fontSize = 9.sp,
+                                    fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
@@ -475,7 +475,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
 
                             Text(
                                 text = if (history.isNotEmpty()) "HIST (${history.size})" else "fx-991ES",
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF1E293B),
                                 modifier = Modifier.clickable { showHistorySheet = !showHistorySheet }
@@ -494,7 +494,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             text = if (expression.isEmpty()) "0" else expression,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Medium,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             color = Color(0xFF0F172A),
                             maxLines = 1
                         )
@@ -516,7 +516,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             text = displayResult,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
-                            fontSize = 24.sp,
+                            fontSize = 20.sp,
                             color = Color(0xFF020617),
                             textAlign = TextAlign.End,
                             maxLines = 1,
@@ -526,18 +526,18 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // 2. TOP FUNCTION & CONTROL KEYPAD ROW (SHIFT, ALPHA, REPLAY D-PAD, MODE, ON)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
+                    .padding(horizontal = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Left Controls: SHIFT & ALPHA
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     CasioSmallPillKey(
                         label = "SHIFT",
                         subLabel = "",
@@ -564,10 +564,10 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                 Surface(
                     shape = CircleShape,
                     color = Color(0xFF94A3B8),
-                    border = BorderStroke(2.dp, Color(0xFFCBD5E1)),
-                    shadowElevation = 8.dp,
+                    border = BorderStroke(1.5.dp, Color(0xFFCBD5E1)),
+                    shadowElevation = 5.dp,
                     modifier = Modifier
-                        .size(86.dp)
+                        .size(66.dp)
                         .testTag("casio_replay_pad")
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -575,10 +575,10 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                         Surface(
                             shape = CircleShape,
                             color = Color(0xFF475569),
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(26.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("REPLAY", fontSize = 7.sp, fontWeight = FontWeight.Black, color = Color(0xFFE2E8F0))
+                                Text("REPLAY", fontSize = 6.sp, fontWeight = FontWeight.Black, color = Color(0xFFE2E8F0))
                             }
                         }
 
@@ -596,9 +596,9 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             },
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .size(24.dp)
+                                .size(20.dp)
                         ) {
-                            Icon(Icons.Filled.ArrowDropUp, contentDescription = "Up", tint = Color(0xFF0F172A))
+                            Icon(Icons.Filled.ArrowDropUp, contentDescription = "Up", tint = Color(0xFF0F172A), modifier = Modifier.size(16.dp))
                         }
 
                         // Down Arrow (Navigate History Forward)
@@ -619,9 +619,9 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             },
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .size(24.dp)
+                                .size(20.dp)
                         ) {
-                            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Down", tint = Color(0xFF0F172A))
+                            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Down", tint = Color(0xFF0F172A), modifier = Modifier.size(16.dp))
                         }
 
                         // Left Arrow (Move Cursor Left)
@@ -633,9 +633,9 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             },
                             modifier = Modifier
                                 .align(Alignment.CenterStart)
-                                .size(24.dp)
+                                .size(20.dp)
                         ) {
-                            Icon(Icons.Filled.ArrowLeft, contentDescription = "Left", tint = Color(0xFF0F172A))
+                            Icon(Icons.Filled.ArrowLeft, contentDescription = "Left", tint = Color(0xFF0F172A), modifier = Modifier.size(16.dp))
                         }
 
                         // Right Arrow (Move Cursor Right)
@@ -647,15 +647,15 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                             },
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
-                                .size(24.dp)
+                                .size(20.dp)
                         ) {
-                            Icon(Icons.Filled.ArrowRight, contentDescription = "Right", tint = Color(0xFF0F172A))
+                            Icon(Icons.Filled.ArrowRight, contentDescription = "Right", tint = Color(0xFF0F172A), modifier = Modifier.size(16.dp))
                         }
                     }
                 }
 
                 // Right Controls: MODE/SETUP & ON
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     CasioSmallPillKey(
                         label = "MODE",
                         subLabel = "SETUP",
@@ -685,7 +685,7 @@ fun CasioCalculatorContent(modifier: Modifier = Modifier) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // -------------------------------------------------------------
             // SUB-VIEW FOR SPECIAL CASIO MODES (EQN, TABLE, STAT, MATRIX, VECTOR, BASE-N)
@@ -1811,16 +1811,16 @@ private fun CasioFuncKey(
             shape = RoundedCornerShape(6.dp),
             color = Color(0xFF334155),
             border = BorderStroke(1.dp, Color(0xFF475569)),
-            shadowElevation = 4.dp,
+            shadowElevation = 3.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(30.dp)
+                .height(26.dp)
                 .clickable { onClick() }
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = label,
-                    fontSize = 11.sp,
+                    fontSize = 10.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFF8FAFC),
                     textAlign = TextAlign.Center
@@ -1837,18 +1837,18 @@ private fun CasioNumKey(
     onClick: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(7.dp),
         color = Color(0xFFF8FAFC), // Authentic Casio Off-White Numeric Key
         border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-        shadowElevation = 4.dp,
+        shadowElevation = 3.dp,
         modifier = modifier
-            .height(42.dp)
+            .height(36.dp)
             .clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = num,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Black,
                 color = Color(0xFF0F172A)
             )
@@ -1863,18 +1863,18 @@ private fun CasioOpKey(
     onClick: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(7.dp),
         color = Color(0xFF334155),
         border = BorderStroke(1.dp, Color(0xFF475569)),
-        shadowElevation = 4.dp,
+        shadowElevation = 3.dp,
         modifier = modifier
-            .height(42.dp)
+            .height(36.dp)
             .clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = op,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFF8FAFC)
             )
@@ -1890,17 +1890,17 @@ private fun CasioActionKey(
     onClick: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(7.dp),
         color = bgColor,
-        shadowElevation = 4.dp,
+        shadowElevation = 3.dp,
         modifier = modifier
-            .height(42.dp)
+            .height(36.dp)
             .clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = action,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Black,
                 color = Color.White
             )

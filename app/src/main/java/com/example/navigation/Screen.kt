@@ -35,7 +35,16 @@ sealed class Screen(val route: String, val title: String, val selectedIcon: Imag
     // Bottom Bar Destinations
     object Dashboard : Screen("dashboard", "الرئيسية", Icons.Filled.Dashboard, Icons.Outlined.Dashboard)
     object Schedule : Screen("schedule", "الجدول", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth)
-    object Attendance : Screen("attendance", "الحضور", Icons.Filled.CheckCircle, Icons.Outlined.CheckCircle)
+    object Attendance : Screen("attendance?groupId={groupId}&date={date}", "الحضور", Icons.Filled.CheckCircle, Icons.Outlined.CheckCircle) {
+        fun createRoute(groupId: Long = 0L, date: String = ""): String {
+            return if (groupId > 0L || date.isNotBlank()) {
+                val encodedDate = if (date.isNotBlank()) java.net.URLEncoder.encode(date, "UTF-8") else ""
+                "attendance?groupId=$groupId&date=$encodedDate"
+            } else {
+                "attendance?groupId=0&date="
+            }
+        }
+    }
     object Students : Screen("students", "الطلاب", Icons.Filled.People, Icons.Outlined.People)
     object Finance : Screen("finance", "المالية", Icons.Filled.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet)
 

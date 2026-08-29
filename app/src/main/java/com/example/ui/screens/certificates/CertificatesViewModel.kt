@@ -23,6 +23,7 @@ data class CertificatesUiState(
     val groups: List<GroupEntity> = emptyList(),
     val selectedStudentId: Long = 0L,
     val selectedStudentName: String = "",
+    val selectedGender: String = "boy",
     val selectedGroupId: Long = 0L,
     val selectedGroupName: String = "",
     val setting: CertificateSettingEntity = CertificateSettingEntity(),
@@ -60,13 +61,22 @@ class CertificatesViewModel(
                     students = students,
                     groups = groups,
                     selectedStudentId = sId,
-                    selectedStudentName = student?.name ?: "",
-                    selectedGroupId = group?.id ?: 0L,
-                    selectedGroupName = group?.name ?: "",
+                    selectedStudentName = if (_uiState.value.selectedStudentName.isBlank()) (student?.name ?: "") else _uiState.value.selectedStudentName,
+                    selectedGender = student?.gender ?: _uiState.value.selectedGender,
+                    selectedGroupId = group?.id ?: _uiState.value.selectedGroupId,
+                    selectedGroupName = group?.name ?: _uiState.value.selectedGroupName,
                     setting = setting ?: CertificateSettingEntity(signatureName = teacher?.name ?: "أستاذ المادة")
                 )
             }.collect {}
         }
+    }
+
+    fun setStudentName(name: String) {
+        _uiState.value = _uiState.value.copy(selectedStudentName = name)
+    }
+
+    fun setGender(gender: String) {
+        _uiState.value = _uiState.value.copy(selectedGender = gender)
     }
 
     fun selectStudent(studentId: Long) {
@@ -75,6 +85,7 @@ class CertificatesViewModel(
         _uiState.value = _uiState.value.copy(
             selectedStudentId = studentId,
             selectedStudentName = student?.name ?: "",
+            selectedGender = student?.gender ?: "boy",
             selectedGroupId = group?.id ?: 0L,
             selectedGroupName = group?.name ?: ""
         )
@@ -150,6 +161,7 @@ class CertificatesViewModel(
 
     fun generateAndShareCertificate(context: Context) {
         val studentName = _uiState.value.selectedStudentName.ifEmpty { "طالب متميز" }
+        val gender = _uiState.value.selectedGender
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isGenerating = true)
             val file = pdfExporter.generateCertificatePdf(
@@ -157,7 +169,8 @@ class CertificatesViewModel(
                 studentName = studentName,
                 groupName = _uiState.value.selectedGroupName,
                 teacher = _uiState.value.teacher,
-                settings = _uiState.value.setting
+                settings = _uiState.value.setting,
+                gender = gender
             )
             _uiState.value = _uiState.value.copy(generatedPdf = file, isGenerating = false)
             pdfExporter.sharePdf(context, file, "شهادة تقدير - $studentName")
@@ -172,12 +185,14 @@ class CertificatesViewModel(
             val groupName = group?.name ?: "المجموعة"
 
             val list = students.map { Pair(it.name, groupName) }
+            val genderMap = students.associate { it.name to it.gender }
             val file = withContext(Dispatchers.IO) {
                 pdfExporter.generateBatchCertificatesPdf(
                     context = context,
                     teacher = _uiState.value.teacher,
                     studentsWithGroup = list,
-                    settings = _uiState.value.setting
+                    settings = _uiState.value.setting,
+                    genderMap = genderMap
                 )
             }
             _uiState.value = _uiState.value.copy(isGenerating = false, generatedPdf = file)
